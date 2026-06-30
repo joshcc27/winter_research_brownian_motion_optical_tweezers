@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.join(_here, "..", "src"))
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 from params import TrapParams
 from langevin import integrate, sample_paths
@@ -46,53 +45,55 @@ mean_anal = ou_mean(t_anal, x0=x0_relax, p=p)
 var_anal = ou_variance(t_anal, p=p)          # starts at 0 (all particles at x0)
 
 # ── Figure ────────────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(14, 4))
-gs = gridspec.GridSpec(1, 3, figure=fig, wspace=0.38)
-
-# --- Panel 1: relaxation trajectories ----------------------------------------
-ax1 = fig.add_subplot(gs[0])
-for j in range(X_paths.shape[1]):
-    ax1.plot(t_paths / p.tau, X_paths[:, j] * 1e9, lw=0.8, alpha=0.7)
-ax1.axhline(0, color="k", lw=0.5, ls="--")
-ax1.axhline( p.sigma_x * 1e9, color="gray", lw=0.5, ls=":")
-ax1.axhline(-p.sigma_x * 1e9, color="gray", lw=0.5, ls=":")
-ax1.set_xlabel("t / τ")
-ax1.set_ylabel("x  [nm]")
-ax1.set_title("Relaxation trajectories")
-
-# --- Panel 2: ensemble moments -----------------------------------------------
-ax2 = fig.add_subplot(gs[1])
+fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
+ax1, ax2, ax3, ax4 = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
 t_plot = t_anal / p.tau
 
-ax2.plot(t_plot, result.mean * 1e9, color="steelblue", lw=1.2, label="sim mean")
-ax2.plot(t_plot, mean_anal * 1e9, "k--", lw=1.0, label="analytic mean")
-ax2.set_xlabel("t / τ")
-ax2.set_ylabel("<x>  [nm]")
-ax2.set_title("Mean relaxation")
-ax2.legend(fontsize=7)
+# --- Panel 1 (top-left): relaxation trajectories -----------------------------
+for j in range(X_paths.shape[1]):
+    ax1.plot(t_paths / p.tau, X_paths[:, j] * 1e9, lw=0.9, alpha=0.7)
+ax1.axhline(0, color="k", lw=0.6, ls="--")
+ax1.axhline( p.sigma_x * 1e9, color="gray", lw=0.6, ls=":", label=r"$\pm\sigma_x$")
+ax1.axhline(-p.sigma_x * 1e9, color="gray", lw=0.6, ls=":")
+ax1.set_xlabel(r"$t\,/\,\tau$")
+ax1.set_ylabel("x  [nm]")
+ax1.set_title("Relaxation trajectories")
+ax1.legend(fontsize=8, loc="upper right")
 
-ax2b = ax2.twinx()
-ax2b.plot(t_plot, result.variance * 1e18, color="tomato", lw=1.2,
-          label="sim var")
-ax2b.plot(t_plot, var_anal * 1e18, "k:", lw=1.0, label="analytic var")
-ax2b.set_ylabel("Var(x)  [nm²]")
-ax2b.legend(fontsize=7, loc="lower right")
+# --- Panel 2 (top-right): ensemble mean --------------------------------------
+ax2.plot(t_plot, result.mean * 1e9, color="steelblue", lw=1.4, label="simulation")
+ax2.plot(t_plot, mean_anal * 1e9, "k--", lw=1.2, label=r"$x_0\,e^{-t/\tau}$")
+ax2.set_xlabel(r"$t\,/\,\tau$")
+ax2.set_ylabel(r"$\langle x \rangle$  [nm]")
+ax2.set_title("Ensemble mean")
+ax2.legend(fontsize=9)
 
-# --- Panel 3: stationary histogram vs Boltzmann ------------------------------
-ax3 = fig.add_subplot(gs[2])
+# --- Panel 3 (bottom-left): ensemble variance --------------------------------
+ax3.plot(t_plot, result.variance * 1e18, color="tomato", lw=1.4, label="simulation")
+ax3.plot(t_plot, var_anal * 1e18, "k--", lw=1.2,
+         label=r"$\sigma_x^2(1-e^{-2t/\tau})$")
+ax3.axhline(p.sigma_x**2 * 1e18, color="gray", lw=0.8, ls=":",
+            label=r"$k_BT/k$")
+ax3.set_xlabel(r"$t\,/\,\tau$")
+ax3.set_ylabel(r"Var$(x)$  [nm$^2$]")
+ax3.set_title("Ensemble variance")
+ax3.legend(fontsize=9)
+
+# --- Panel 4 (bottom-right): stationary histogram vs Boltzmann ---------------
 x_final = result.x_final
 x_grid = np.linspace(x_final.min(), x_final.max(), 400)
 pdf_anal = boltzmann_pdf(x_grid, p)
 
-ax3.hist(x_final * 1e9, bins=80, density=True, color="steelblue",
-         alpha=0.6, label="sim (stationary)")
-ax3.plot(x_grid * 1e9, pdf_anal / 1e9, "k--", lw=1.5, label="Boltzmann")
-ax3.set_xlabel("x  [nm]")
-ax3.set_ylabel("probability density  [1/nm]")
-ax3.set_title("Stationary distribution")
-ax3.legend(fontsize=7)
+ax4.hist(x_final * 1e9, bins=80, density=True, color="steelblue",
+         alpha=0.55, label="simulation (stationary)")
+ax4.plot(x_grid * 1e9, pdf_anal / 1e9, "k--", lw=1.8,
+         label=r"Boltzmann $e^{-kx^2/2k_BT}$")
+ax4.set_xlabel("x  [nm]")
+ax4.set_ylabel("probability density  [nm$^{-1}$]")
+ax4.set_title("Stationary distribution")
+ax4.legend(fontsize=9)
 
-fig.suptitle("Day-1 validation — Brownian dynamics vs analytic OU", fontsize=11)
+fig.suptitle("Day-1 validation — Brownian dynamics vs analytic OU", fontsize=12)
 
 out_dir = os.path.join(_here, "..", "figures")
 os.makedirs(out_dir, exist_ok=True)
