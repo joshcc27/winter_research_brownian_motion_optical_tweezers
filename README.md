@@ -1,10 +1,10 @@
 # Brownian dynamics in optical tweezers
 
-Solving the Smoluchowski (overdamped Fokker–Planck) equation for a Brownian particle in an optical trap, and using the solutions to study nanoparticles as volume-exploring probes.
+Solving the equation for a Brownian particle in an optical trap, and using the solutions to study nanoparticles as volume-exploring probes.
 
 ---
 
-## Scientific aim
+## Aim
 
 A single nanoparticle held in optical tweezers behaves as an overdamped Brownian particle in a force field. Its position density $P(\mathbf{x}, t)$ obeys the Smoluchowski equation, and for a harmonic trap the dynamics are exactly an Ornstein–Uhlenbeck process. This project solves that equation in two settings — (a) the trap as a conservative potential, where the steady state is Boltzmann, and (b) the trap with non-conservative scattering forces, where no closed-form steady state exists and a circulating Brownian vortex current appears — and uses the solutions to explore nanoparticles as probes that map their local optical and force environment. Because a single trapped particle has no inter-particle interactions, its equilibrium position density is just the barometric (ideal-gas) density in the trap potential.
 
@@ -14,12 +14,12 @@ A single nanoparticle held in optical tweezers behaves as an overdamped Brownian
 
 The work is staged in phases, each validated against something checkable before the next begins:
 
-1. 1D conservative test rig
+1. 1D conservative "toy" test rig
 2. Axisymmetric $(r, z)$ conservative
-3. Non-conservative forces (the research)
+3. Non-conservative forces
 4. Applications as a volume-exploring probe
 
-The organising principle is that every result is checked two independent ways — Brownian dynamics against a direct Fokker–Planck solve against the analytic OU/Boltzmann result. This matters because the one case the project most cares about, the non-conservative steady state, has no closed form, so the only way to trust it is two methods agreeing. Two hard invariants hold throughout: probability is conserved to machine precision, and $P \ge 0$ everywhere.
+The organising principle is that every result is checked two independent ways, i.e., Brownian dynamics against a direct Fokker–Planck solve against the analytic OU/Boltzmann result. This matters because the one case the project most cares about, the non-conservative steady state, has no closed form, so the only way to trust it is two methods agreeing. Two hard invariants hold throughout: probability is conserved to machine precision, and $P \ge 0$ everywhere.
 
 ---
 
@@ -45,8 +45,6 @@ The organising principle is that every result is checked two independent ways �
 | `src/analytics.py` | Closed-form OU / Boltzmann results used as the ground truth | 1 |
 | `scripts/validate_day1.py` | End-to-end Phase 1 validation; writes figures, prints PASS/FAIL | 1 |
 | `tests/test_langevin.py` | Asserts BD reproduces the OU variance and relaxation | 1 |
-
-The full intended architecture, including the not-yet-present modules, is in the project scaffold; the planned ones are listed under [Status](#status).
 
 ---
 
@@ -126,12 +124,10 @@ Planned modules: `forces.py` (conservative + non-conservative fields), `fp_1d.py
 
 ## Provenance and references
 
-Winter Research Project (MATH7012 precursor), University of Queensland, June–July 2026. Supervisor: Alex Stilgoe. This is solo coursework research, not a redistributable package.
+Winter Research Project, University of Queensland, June–July 2026. Supervisor: Alex Stilgoe. This is solo coursework research.
 
-Anchor references, tagged by where they bite:
+Feferences
 
-- Volpe & Volpe, *Simulation of a Brownian particle in an optical trap*, Am. J. Phys. **81**, 224 (2013) — the BD tutorial behind Phase 1.
+- Volpe & Volpe, *Simulation of a Brownian particle in an optical trap*, Am. J. Phys. **81**, 224 (2013)
 - Jones, Maragò & Volpe, *Optical Tweezers: Principles and Applications* (Cambridge, 2015) — Ch. 7 (Brownian motion) for Phases 1–2; Ch. 3 (dipole approximation) for the force field; Ch. 20–21 (statistical physics, nanothermodynamics) for the non-conservative applications.
-- Risken, *The Fokker–Planck Equation* — OU process, eigenfunction methods, the Schrödinger correspondence.
-- Chang & Cooper, J. Comp. Phys. **6**, 1 (1970) — the flux-conserving discretisation for Phase 1.
-- Roichman, Sun et al., Phys. Rev. Lett. (2008); Sun, Roichman & Grier, Phys. Rev. E (2010) — the Brownian-vortex phenomenology for Phase 3.
+
