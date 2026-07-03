@@ -28,29 +28,39 @@ The organising principle is that every result is checked two independent ways, i
 ```
 .
 ├── src/
-│   ├── params.py        # physical parameters + derived quantities
-│   ├── langevin.py      # Brownian-dynamics integrator
-│   ├── analytics.py     # closed-form ground truth
-│   └── fp_1d.py         # 1D Fokker-Planck solver (Chang-Cooper + Crank-Nicolson)
+│   ├── params.py            # physical parameters + derived quantities
+│   ├── langevin.py          # Phase-1 Brownian-dynamics integrator
+│   ├── analytics.py         # Phase-1 closed-form ground truth
+│   ├── fp_1d.py              # Phase-1 1D Fokker-Planck solver (Chang-Cooper + Crank-Nicolson)
+│   ├── langevin_axisym.py   # Phase-2 axisymmetric BD integrator (3 x Cartesian OU)
+│   ├── analytics_axisym.py  # Phase-2 closed-form ground truth (Rayleigh/Gaussian)
+│   └── fp_axisym.py         # Phase-2 (r,z) Fokker-Planck solver (Chang-Cooper + Peaceman-Rachford ADI)
 ├── scripts/
-│   ├── validate_day1.py # Phase 1 BD validation harness
-│   └── validate_day2.py # Phase 1 FP validation + BD cross-check
+│   ├── validate_phase1.py   # Phase 1 FP validation + BD cross-check
+│   └── validate_phase2.py   # Phase 2 FP validation + BD cross-check
 ├── tests/
-│   ├── test_langevin.py # BD regression tests
-│   └── test_fp1d.py     # FP regression tests
+│   ├── test_langevin.py         # Phase-1 BD regression tests
+│   ├── test_fp1d.py             # Phase-1 FP regression tests
+│   ├── test_langevin_axisym.py  # Phase-2 BD regression tests
+│   └── test_fp_axisym.py        # Phase-2 FP regression tests
 └── figures/             # generated output
 ```
 
 | Module | Role | Phase |
 |---|---|---|
-| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ | 0 |
+| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ (`TrapParams`) and their anisotropic $(r,z)$ counterparts (`AxisymTrapParams`) | 0 / 2 |
 | `src/langevin.py` | Euler–Maruyama integrator for the 1D overdamped Langevin SDE | 1 |
 | `src/analytics.py` | Closed-form OU / Boltzmann results used as the ground truth | 1 |
 | `src/fp_1d.py` | Chang–Cooper / Crank–Nicolson solver for the 1D Fokker–Planck equation | 1 |
-| `scripts/validate_day1.py` | End-to-end BD validation; writes figures, prints PASS/FAIL | 1 |
-| `scripts/validate_day2.py` | FP vs analytic vs BD validation; writes figures, prints PASS/FAIL | 1 |
+| `scripts/validate_phase1.py` | BD vs FP vs analytic validation; writes figures, prints PASS/FAIL | 1 |
 | `tests/test_langevin.py` | Asserts BD reproduces the OU variance and relaxation | 1 |
 | `tests/test_fp1d.py` | Asserts FP reproduces the OU/Boltzmann result, conserves probability, stays non-negative | 1 |
+| `src/langevin_axisym.py` | Three decoupled Cartesian OU processes (BD in the axisymmetric trap), kept Cartesian so it shares no code path with the cylindrical FP solver it cross-checks | 2 |
+| `src/analytics_axisym.py` | Closed-form stationary moments and marginals: Rayleigh$(\sigma_r)$ for $P(r)$, Gaussian for $P(z)$ | 2 |
+| `src/fp_axisym.py` | Cylindrical finite-volume Chang–Cooper discretisation (staggered radial grid, automatic $r=0$ regularity) with Peaceman–Rachford ADI time-stepping | 2 |
+| `scripts/validate_phase2.py` | FP vs analytic Rayleigh/Gaussian vs BD validation; writes figures, prints PASS/FAIL | 2 |
+| `tests/test_langevin_axisym.py` | Asserts BD reproduces the analytic $\langle r^2\rangle, \langle z^2\rangle$ | 2 |
+| `tests/test_fp_axisym.py` | Asserts FP reproduces the analytic moments, conserves probability, stays non-negative, and factorises | 2 |
 
 ---
 
@@ -65,12 +75,12 @@ pip install -r requirements.txt
 From the repo root:
 
 ```bash
-python scripts/validate_day1.py   # Phase 1 BD validation — writes figures/, prints PASS/FAIL
-python scripts/validate_day2.py   # Phase 1 FP validation + BD cross-check — writes figures/, prints PASS/FAIL
-pytest -q                         # regression tests
+python scripts/validate_phase1.py   # Phase 1 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
+python scripts/validate_phase2.py   # Phase 2 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
+pytest -q                           # regression tests
 ```
 
-`validate_day1.py` and `validate_day2.py` regenerate the figures in `figures/` and print the stationary-variance, relaxation, conservation, and positivity errors against their tolerances. The scripts add `src/` to the path themselves, so run them from the repo root.
+Each `validate_*.py` script regenerates its figure in `figures/` and prints the stationary-moment, conservation, and positivity errors against their tolerances. The scripts add `src/` to the path themselves, so run them from the repo root.
 
 ---
 
@@ -106,6 +116,27 @@ $$\frac{\partial P}{\partial t} = -\frac{\partial J}{\partial x}, \qquad J(x,t) 
 
 solved in `fp_1d.py` on a truncated domain $[-L, L]$, $L = 6\sigma_x$, with no-flux boundaries ($J=0$ at $x=\pm L$). Space is discretized with the Chang–Cooper exponential-fitting scheme (positivity-preserving and exact for the local steady flux at any Péclet number), and time with Crank–Nicolson (unconditionally stable, second-order accurate), solved via a tridiagonal (Thomas-algorithm) linear solve at each step.
 
+### Phase 2: axisymmetric $(r, z)$ trap
+
+A real Gaussian-beam trap is stiffer transverse to its axis than along it, so the harmonic potential picks up two spring constants, $U(r,z) = \tfrac12 k_r r^2 + \tfrac12 k_z z^2$, with `AxisymTrapParams` keeping $k_r$ equal to Phase 1's $k$ and $k_z = k_r/5$ (softer, giving the characteristic cigar-shaped cloud). Because the potential is separable in Cartesian coordinates, the SDE is just three independent copies of the Phase-1 OU process — this is what `langevin_axisym.py` integrates directly, in $(x, y, z)$, forming $r = \sqrt{x^2+y^2}$ only when reporting moments or histograms.
+
+| Quantity | Definition | Value |
+|---|---|---|
+| radial stiffness | $k_r$ | $10^{-6}$ N/m |
+| axial stiffness | $k_z$ | $2\times10^{-7}$ N/m |
+| radial relaxation time | $\tau_r = \gamma/k_r$ | 9.4 ms |
+| axial relaxation time | $\tau_z = \gamma/k_z$ | 47.1 ms |
+| radial stationary std (per axis) | $\sigma_r = \sqrt{k_BT/k_r}$ | 64 nm |
+| axial stationary std | $\sigma_z = \sqrt{k_BT/k_z}$ | 144 nm |
+
+The corresponding Fokker–Planck equation is not simply two copies of the 1D case, because the reduced density $\rho(r,z,t)$ (already integrated over the trivial azimuthal angle) picks up the cylindrical Jacobian $r\,dr\,dz$:
+
+$$\frac{\partial \rho}{\partial t} = -\frac{1}{r}\frac{\partial (r J_r)}{\partial r} - \frac{\partial J_z}{\partial z}, \qquad J_r = -\frac{k_r}{\gamma}rP - D\frac{\partial P}{\partial r}, \quad J_z = -\frac{k_z}{\gamma}zP - D\frac{\partial P}{\partial z}.$$
+
+`fp_axisym.py` solves this on a **staggered** radial grid — cell centres at $(i+\tfrac12)\Delta r$, so no grid node sits on the axis and the innermost face lands exactly at $r=0$ — which makes the $r=0$ regularity condition (no flux can cross the axis) fall out of the finite-volume geometry automatically, with no separate boundary rule needed. Each direction still uses Chang–Cooper face weighting, as in Phase 1. Because the unknown now lives on an $N_r \times N_z$ grid, time-stepping uses **Peaceman–Rachford ADI**: each step splits into two half-steps (implicit in $r$ with $z$ explicit, then implicit in $z$ with $r$ explicit), each of which is a batch of independent tridiagonal solves — reusing the Phase-1 Thomas-algorithm machinery direction by direction rather than solving one large 2D system.
+
+Two independent numerical solutions cross-check each other and the analytic ground truth: BD (three decoupled Cartesian OU processes, `langevin_axisym.py`) against the cylindrical FP solve (`fp_axisym.py`) against the exact factorised stationary state — Rayleigh$(\sigma_r)$ for the radial marginal $P(r)$ (not Gaussian, since $r$ is a modulus and its density picks up the $r\,dr$ measure) and Gaussian$(\sigma_z)$ for the axial marginal $P(z)$.
+
 ---
 
 ## Status
@@ -114,14 +145,16 @@ solved in `fp_1d.py` on a truncated domain $[-L, L]$, $L = 6\sigma_x$, with no-f
 |---|---|---|
 | 0 | Setup (repo, environment, parameters) | done |
 | 1 | 1D conservative test rig | done |
-| 2 | Axisymmetric $(r, z)$ conservative | planned |
+| 2 | Axisymmetric $(r, z)$ conservative | done |
 | 3 | Non-conservative forces | planned |
 | 4 | Applications as volume-exploring probe | planned |
 | 5 | Write-up | planned |
 
-Phase 1 is complete: the Brownian-dynamics integrator and the 1D Fokker–Planck solver (Crank–Nicolson in time, Chang–Cooper flux scheme in space) both agree with the analytic OU/Boltzmann result and with each other. Next up is Phase 2, extending the Fokker–Planck solve to the axisymmetric $(r, z)$ conservative case.
+Phase 1 is complete: the Brownian-dynamics integrator and the 1D Fokker–Planck solver (Crank–Nicolson in time, Chang–Cooper flux scheme in space) both agree with the analytic OU/Boltzmann result and with each other.
 
-Planned modules: `forces.py` (conservative + non-conservative fields), `fp_axisym.py`, `boundaries.py` (no-flux plus $r = 0$ regularity), `current.py` (probability current and streamlines).
+Phase 2 is complete: the axisymmetric $(r, z)$ trap is solved two independent ways — three decoupled Cartesian Ornstein–Uhlenbeck processes (`langevin_axisym.py`) and a cylindrical finite-volume Fokker–Planck solve (`fp_axisym.py`), the latter using a staggered radial grid (the $r = 0$ regularity condition falls out of the geometry rather than needing an explicit boundary rule) and Peaceman–Rachford ADI time-stepping that reuses the Phase-1 tridiagonal solve direction by direction. Both match the analytic Rayleigh$(\sigma_r)$/Gaussian$(\sigma_z)$ marginals and each other to within tolerance; the stationary density conserves probability, stays non-negative, and factorises as $g_r(r)\,g_z(z)$ as the separable potential requires. Next up is Phase 3, introducing non-conservative forces, where none of this closed-form ground truth is available and the FP/BD cross-check becomes the only way to trust the result.
+
+Planned modules for Phase 3: `forces.py` (conservative + non-conservative fields), `current.py` (probability current and streamlines) — a separate `boundaries.py` was not needed in the end, since the no-flux and $r = 0$ regularity conditions fell out naturally from the finite-volume flux construction in `fp_1d.py`/`fp_axisym.py`.
 
 ---
 
