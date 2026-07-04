@@ -28,7 +28,7 @@ from analytics_axisym import r2_analytic, z2_analytic, rayleigh_pdf, gaussian_z_
 
 # ── tolerance for numerical PASS/FAIL ────────────────────────────────────────
 TOL = 0.03          # 3 %
-CONSERVATION_TOL = 1e-8
+CONSERVATION_TOL = 1e-10
 SEPARABILITY_TOL = 1e-6
 SEED = 42
 

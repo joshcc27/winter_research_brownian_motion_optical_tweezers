@@ -5,7 +5,7 @@ from fp_axisym import integrate_fp_axisym
 from analytics_axisym import r2_analytic, z2_analytic
 
 TOL = 0.03
-CONSERVATION_TOL = 1e-8
+CONSERVATION_TOL = 1e-10
 SEPARABILITY_TOL = 1e-4
 
 

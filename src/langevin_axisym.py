@@ -22,7 +22,8 @@ import numpy as np
 from numpy.random import Generator
 from dataclasses import dataclass
 
-from params import AxisymTrapParams
+from params import AxisymTrapParams, NonConservativeParams
+from forces import scattering_force
 
 
 @dataclass
@@ -87,6 +88,68 @@ def integrate_axisym(
         x += -drift_r * x * dt + noise * rng.standard_normal(n_particles)
         y += -drift_r * y * dt + noise * rng.standard_normal(n_particles)
         z += -drift_z * z * dt + noise * rng.standard_normal(n_particles)
+        t[i] = (i + 1) * dt
+        r2[i] = np.mean(x**2 + y**2)
+        z2[i] = np.mean(z**2)
+
+    return IntegrateAxisymResult(t=t, r2=r2, z2=z2, x_final=x, y_final=y, z_final=z)
+
+
+def integrate_axisym_nc(
+    p: NonConservativeParams,
+    n_particles: int = 20_000,
+    n_tau_z: float = 6.0,
+    r0: float | None = None,
+    z0: float | None = None,
+    rng: Generator | None = None,
+) -> IntegrateAxisymResult:
+    """
+    Phase-3 extension of `integrate_axisym`: adds the non-conservative
+    scattering push f_sc(r) = F0*exp(-2r^2/w0^2) (see `forces.py`) to the
+    z update, using each particle's own r = sqrt(x^2+y^2) computed from
+    its *current* (x, y) before that step's update -- the same
+    old-value convention the explicit Euler-Maruyama scheme already uses
+    for the -drift_r*x*dt term. This still costs nothing beyond a per-
+    particle function evaluation: r is a per-particle scalar, not a
+    field, so there is still no inter-particle coupling and the x, y
+    dynamics themselves are completely unaffected by F0 (the push only
+    ever enters the z update) -- the radial marginal stays exactly
+    Rayleigh(sigma_r) for any F0, only the z / joint (r, z) statistics
+    change. See `analytics_axisym.r2_analytic`.
+
+    F0 = 0 reduces `scattering_force` to zero identically, so this
+    reproduces `integrate_axisym` bit-for-bit for the same rng stream
+    (same three draws per step, same order) -- the regression check
+    Phase 3 gates on before trusting any F0 > 0 output.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if r0 is None:
+        r0 = 3.0 * p.sigma_r
+    if z0 is None:
+        z0 = -3.0 * p.sigma_z
+
+    dt = p.dt
+    n_steps = int(np.ceil(n_tau_z * p.tau_z / dt))
+
+    drift_r = p.kr / p.gamma
+    drift_z = p.kz / p.gamma
+    noise = np.sqrt(2.0 * p.D * dt)
+
+    x = np.full(n_particles, r0, dtype=np.float64)
+    y = np.zeros(n_particles, dtype=np.float64)
+    z = np.full(n_particles, z0, dtype=np.float64)
+
+    t = np.empty(n_steps)
+    r2 = np.empty(n_steps)
+    z2 = np.empty(n_steps)
+
+    for i in range(n_steps):
+        r = np.sqrt(x**2 + y**2)
+        x += -drift_r * x * dt + noise * rng.standard_normal(n_particles)
+        y += -drift_r * y * dt + noise * rng.standard_normal(n_particles)
+        z += (-drift_z * z + scattering_force(p, r) / p.gamma) * dt \
+            + noise * rng.standard_normal(n_particles)
         t[i] = (i + 1) * dt
         r2[i] = np.mean(x**2 + y**2)
         z2[i] = np.mean(z**2)

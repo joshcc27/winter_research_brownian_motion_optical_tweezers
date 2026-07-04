@@ -267,6 +267,37 @@ class AxisymTrapParams:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class NonConservativeParams(AxisymTrapParams):
+    """
+    Phase-3 extension of `AxisymTrapParams`: adds a Gaussian-beam-shaped
+    non-conservative scattering push along z,
+
+        f_sc(r) = F0 * exp(-2 r^2 / w0^2),
+
+    on top of the Phase-2 harmonic trap. Physically this stands in for
+    the forward-scattering (radiation-pressure) force of the dipole
+    approximation (Jones/Maragò/Volpe Ch. 3): unlike the gradient force,
+    it has no scalar potential, because it points along the beam axis
+    (z) while its magnitude tracks the transverse beam intensity
+    profile (r) -- a mismatch between the force's direction and the
+    direction it varies in, which is exactly what gives the combined
+    field a nonzero curl in the meridian plane (see `forces.py`).
+
+    F0 = 0 (the default) must reproduce `AxisymTrapParams` exactly, so
+    that turning the push off is a genuine regression test against
+    Phase 2 rather than a separate code path. w0 defaults to sigma_r --
+    the trap's own transverse scale -- unless overridden, so the push
+    acts on the same lengthscale as the trap.
+    """
+    F0: float = 0.0            # N, scattering-push magnitude at r = 0
+    w0: float | None = None    # m, transverse 1/e^2 width of the push; None -> sigma_r
+
+    def __post_init__(self):
+        if self.w0 is None:
+            object.__setattr__(self, "w0", self.sigma_r)
+
+
 if __name__ == "__main__":
     p = TrapParams()
     print(p.summary())

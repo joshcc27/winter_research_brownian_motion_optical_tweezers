@@ -32,35 +32,51 @@ The organising principle is that every result is checked two independent ways, i
 │   ├── langevin.py          # Phase-1 Brownian-dynamics integrator
 │   ├── analytics.py         # Phase-1 closed-form ground truth
 │   ├── fp_1d.py              # Phase-1 1D Fokker-Planck solver (Chang-Cooper + Crank-Nicolson)
-│   ├── langevin_axisym.py   # Phase-2 axisymmetric BD integrator (3 x Cartesian OU)
+│   ├── langevin_axisym.py   # Phase-2/3 axisymmetric BD integrator (3 x Cartesian OU, + Phase-3 scattering push)
 │   ├── analytics_axisym.py  # Phase-2 closed-form ground truth (Rayleigh/Gaussian)
-│   └── fp_axisym.py         # Phase-2 (r,z) Fokker-Planck solver (Chang-Cooper + Peaceman-Rachford ADI)
+│   ├── fp_axisym.py         # Phase-2 (r,z) Fokker-Planck solver (Chang-Cooper + Peaceman-Rachford ADI)
+│   ├── forces.py            # Phase-3 conservative + non-conservative force field
+│   ├── fp_nc.py             # Phase-3 non-conservative FP solver (r-dependent axial operator, batched Thomas)
+│   └── current.py           # Phase-3 probability current + divergence check
 ├── scripts/
 │   ├── validate_phase1.py   # Phase 1 FP validation + BD cross-check
-│   └── validate_phase2.py   # Phase 2 FP validation + BD cross-check
+│   ├── validate_phase2.py   # Phase 2 FP validation + BD cross-check
+│   └── validate_phase3.py   # Phase 3 FP validation + BD cross-check + current/vortex figure
 ├── tests/
 │   ├── test_langevin.py         # Phase-1 BD regression tests
 │   ├── test_fp1d.py             # Phase-1 FP regression tests
 │   ├── test_langevin_axisym.py  # Phase-2 BD regression tests
-│   └── test_fp_axisym.py        # Phase-2 FP regression tests
+│   ├── test_fp_axisym.py        # Phase-2 FP regression tests
+│   ├── test_forces.py           # Phase-3 force-field / curl regression tests
+│   ├── test_langevin_nc.py      # Phase-3 BD regression tests (incl. F0=0 vs Phase 2)
+│   ├── test_fp_nc.py            # Phase-3 FP regression tests (incl. F0=0 vs Phase 2, batched Thomas)
+│   └── test_current.py          # Phase-3 current/divergence regression tests
 └── figures/             # generated output
 ```
 
 | Module | Role | Phase |
 |---|---|---|
-| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ (`TrapParams`) and their anisotropic $(r,z)$ counterparts (`AxisymTrapParams`) | 0 / 2 |
+| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ (`TrapParams`), their anisotropic $(r,z)$ counterparts (`AxisymTrapParams`), and the Phase-3 scattering-push parameters $F_0, w_0$ (`NonConservativeParams`) | 0 / 2 / 3 |
 | `src/langevin.py` | Euler–Maruyama integrator for the 1D overdamped Langevin SDE | 1 |
 | `src/analytics.py` | Closed-form OU / Boltzmann results used as the ground truth | 1 |
 | `src/fp_1d.py` | Chang–Cooper / Crank–Nicolson solver for the 1D Fokker–Planck equation | 1 |
 | `scripts/validate_phase1.py` | BD vs FP vs analytic validation; writes figures, prints PASS/FAIL | 1 |
 | `tests/test_langevin.py` | Asserts BD reproduces the OU variance and relaxation | 1 |
 | `tests/test_fp1d.py` | Asserts FP reproduces the OU/Boltzmann result, conserves probability, stays non-negative | 1 |
-| `src/langevin_axisym.py` | Three decoupled Cartesian OU processes (BD in the axisymmetric trap), kept Cartesian so it shares no code path with the cylindrical FP solver it cross-checks | 2 |
-| `src/analytics_axisym.py` | Closed-form stationary moments and marginals: Rayleigh$(\sigma_r)$ for $P(r)$, Gaussian for $P(z)$ | 2 |
-| `src/fp_axisym.py` | Cylindrical finite-volume Chang–Cooper discretisation (staggered radial grid, automatic $r=0$ regularity) with Peaceman–Rachford ADI time-stepping | 2 |
+| `src/langevin_axisym.py` | Three decoupled Cartesian OU processes (BD in the axisymmetric trap), kept Cartesian so it shares no code path with the cylindrical FP solver it cross-checks; `integrate_axisym_nc` adds the Phase-3 scattering push to the z drift | 2 / 3 |
+| `src/analytics_axisym.py` | Closed-form stationary moments and marginals: Rayleigh$(\sigma_r)$ for $P(r)$, Gaussian for $P(z)$ — the Rayleigh result survives unchanged into Phase 3 | 2 / 3 |
+| `src/fp_axisym.py` | Cylindrical finite-volume Chang–Cooper discretisation (staggered radial grid, automatic $r=0$ regularity) with Peaceman–Rachford ADI time-stepping; `radial_face_coeffs` exposes the face weights `current.py` reuses | 2 / 3 |
 | `scripts/validate_phase2.py` | FP vs analytic Rayleigh/Gaussian vs BD validation; writes figures, prints PASS/FAIL | 2 |
 | `tests/test_langevin_axisym.py` | Asserts BD reproduces the analytic $\langle r^2\rangle, \langle z^2\rangle$ | 2 |
 | `tests/test_fp_axisym.py` | Asserts FP reproduces the analytic moments, conserves probability, stays non-negative, and factorises | 2 |
+| `src/forces.py` | Conservative trap force + non-conservative scattering push $f_{\text{sc}}(r)$; analytic and finite-difference curl, cross-checked against each other | 3 |
+| `src/fp_nc.py` | Generalises `fp_axisym.py`'s axial operator to $r$-dependent Chang–Cooper coefficients (`axial_operator_field`) and replaces the shared-matrix `solve_banded` z half-step with a batched Thomas solve (`batched_thomas`) | 3 |
+| `src/current.py` | Extracts the steady-state probability current $J(r,z)$ from the FP solve's own face fluxes; checks $\nabla\cdot J \approx 0$ — the substitute for a closed-form check | 3 |
+| `scripts/validate_phase3.py` | FP vs BD cross-check, Rayleigh invariant, conservation/positivity, circulation + divergence-free-current checks; writes the vortex streamline figure | 3 |
+| `tests/test_forces.py` | Asserts $F_0=0$ recovers the conservative force/zero curl, and analytic curl matches a finite-difference cross-check | 3 |
+| `tests/test_langevin_nc.py` | Asserts $F_0=0$ reproduces Phase-2 BD bit-for-bit, $\langle r^2\rangle$ stays Rayleigh for $F_0>0$, and the push shifts $\langle z\rangle$ in the expected direction | 3 |
+| `tests/test_fp_nc.py` | Asserts $F_0=0$ reproduces Phase-2 FP to $10^{-6}$, `batched_thomas` matches `fp_1d.thomas_solve`, and conservation/positivity/Rayleigh hold for $F_0>0$ | 3 |
+| `tests/test_current.py` | Asserts $\nabla\cdot J$ matches the FP operators' own action exactly (discretisation identity), $J\equiv0$ for $F_0=0$, and $J$ is nonzero-but-divergence-free for $F_0>0$ | 3 |
 
 ---
 
@@ -77,6 +93,7 @@ From the repo root:
 ```bash
 python scripts/validate_phase1.py   # Phase 1 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
 python scripts/validate_phase2.py   # Phase 2 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
+python scripts/validate_phase3.py   # Phase 3 BD vs FP + current/vortex checks — writes figures/, prints PASS/FAIL
 pytest -q                           # regression tests
 ```
 
@@ -137,6 +154,24 @@ $$\frac{\partial \rho}{\partial t} = -\frac{1}{r}\frac{\partial (r J_r)}{\partia
 
 Two independent numerical solutions cross-check each other and the analytic ground truth: BD (three decoupled Cartesian OU processes, `langevin_axisym.py`) against the cylindrical FP solve (`fp_axisym.py`) against the exact factorised stationary state — Rayleigh$(\sigma_r)$ for the radial marginal $P(r)$ (not Gaussian, since $r$ is a modulus and its density picks up the $r\,dr$ measure) and Gaussian$(\sigma_z)$ for the axial marginal $P(z)$.
 
+### Phase 3: non-conservative forces
+
+A real optical trap is not a pure gradient force: alongside the gradient force there is a scattering (radiation-pressure) force that pushes the particle forward along the beam axis with a magnitude set by the local beam intensity — a transverse ($r$-dependent) quantity. Phase 3 keeps the radial force purely conservative and adds this push to the axial force only, via `src/forces.py`:
+
+$$F_r(r) = -k_r r, \qquad F_z(r,z) = -k_z z + f_{\text{sc}}(r), \qquad f_{\text{sc}}(r) = F_0 \exp\!\left(-\frac{2r^2}{w_0^2}\right),$$
+
+a Gaussian-beam-shaped push (`NonConservativeParams`, extending `AxisymTrapParams` with $F_0$ and $w_0$; $F_0=0$ reduces every Phase-3 result to Phase 2 exactly). Because $F_r$ has no $z$-dependence and $F_z$'s only $r$-dependence is through $f_{\text{sc}}$, the meridian-plane curl is
+
+$$(\nabla\times\mathbf F)_\theta = \partial_z F_r - \partial_r F_z = -f_{\text{sc}}'(r),$$
+
+nonzero for $F_0 \neq 0$: no scalar potential reproduces $F$, so no Boltzmann steady state exists either, and the FP/BD cross-check becomes the only way to trust the result — exactly the scenario the project's validation philosophy was built for.
+
+**Brownian dynamics.** `langevin_axisym.integrate_axisym_nc` adds $f_{\text{sc}}(r)/\gamma$ to the axial drift, using each particle's own current $r=\sqrt{x^2+y^2}$ — still fully local per particle, no new inter-particle coupling. Since the push only ever enters the $z$ update, the $x,y$ dynamics (and hence $r$) are completely unaffected by $F_0$: $\langle r^2\rangle$ stays exactly $2\sigma_r^2$ for *any* $F_0$, a free invariant checked directly rather than only recovered in the $F_0\to0$ limit.
+
+**Fokker–Planck.** `fp_axisym.py`'s axial operator built one shared $(N_z,)$ tridiagonal triple because the conservative axial drift didn't depend on $r$. Once $f_{\text{sc}}(r)$ is added, the Chang–Cooper coefficients become an $(N_r, N_z{+}1)$-shaped field (`fp_nc.axial_operator_field`), so the $z$-implicit ADI half-step is no longer "one shared matrix, $N_r$ right-hand-side columns" — the case `scipy.linalg.solve_banded` is built for — but $N_r$ *different* tridiagonal matrices, one per radial row. `fp_nc.batched_thomas` replaces it: the same forward-elimination/back-substitution recipe as `fp_1d.thomas_solve`, vectorised over the row (batch) axis instead of solved one system at a time. The radial operator is untouched, since $F_r$ stays conservative.
+
+**Probability current.** With no closed form to check $\rho$ against, `current.py` extracts the steady-state flux $J(r,z)$ from the *same* Chang–Cooper face weights the FP operators are built from (`fp_axisym.radial_face_coeffs`, `fp_nc.axial_face_coeffs_field`), so it measures the flux the solver actually computed rather than a separately-discretised approximation of it. The diagnostic that replaces the closed-form check is $\nabla\cdot J \approx 0$ at steady state (the discrete statement of $\partial\rho/\partial t = 0$, weaker than Phases 1–2's $J\equiv0$ everywhere) together with $J$ being genuinely nonzero — a circulating, divergence-free current: the Brownian vortex. `scripts/validate_phase3.py` renders it as a streamline plot coloured by $\log_{10}|J|$ (a plain quiver plot collapses to invisible dots almost everywhere, since $|J|$ spans many orders of magnitude between the dense core and the tails).
+
 ---
 
 ## Status
@@ -146,15 +181,15 @@ Two independent numerical solutions cross-check each other and the analytic grou
 | 0 | Setup (repo, environment, parameters) | done |
 | 1 | 1D conservative test rig | done |
 | 2 | Axisymmetric $(r, z)$ conservative | done |
-| 3 | Non-conservative forces | planned |
+| 3 | Non-conservative forces | done |
 | 4 | Applications as volume-exploring probe | planned |
 | 5 | Write-up | planned |
 
 Phase 1 is complete: the Brownian-dynamics integrator and the 1D Fokker–Planck solver (Crank–Nicolson in time, Chang–Cooper flux scheme in space) both agree with the analytic OU/Boltzmann result and with each other.
 
-Phase 2 is complete: the axisymmetric $(r, z)$ trap is solved two independent ways — three decoupled Cartesian Ornstein–Uhlenbeck processes (`langevin_axisym.py`) and a cylindrical finite-volume Fokker–Planck solve (`fp_axisym.py`), the latter using a staggered radial grid (the $r = 0$ regularity condition falls out of the geometry rather than needing an explicit boundary rule) and Peaceman–Rachford ADI time-stepping that reuses the Phase-1 tridiagonal solve direction by direction. Both match the analytic Rayleigh$(\sigma_r)$/Gaussian$(\sigma_z)$ marginals and each other to within tolerance; the stationary density conserves probability, stays non-negative, and factorises as $g_r(r)\,g_z(z)$ as the separable potential requires. Next up is Phase 3, introducing non-conservative forces, where none of this closed-form ground truth is available and the FP/BD cross-check becomes the only way to trust the result.
+Phase 2 is complete: the axisymmetric $(r, z)$ trap is solved two independent ways — three decoupled Cartesian Ornstein–Uhlenbeck processes (`langevin_axisym.py`) and a cylindrical finite-volume Fokker–Planck solve (`fp_axisym.py`), the latter using a staggered radial grid (the $r = 0$ regularity condition falls out of the geometry rather than needing an explicit boundary rule) and Peaceman–Rachford ADI time-stepping that reuses the Phase-1 tridiagonal solve direction by direction. Both match the analytic Rayleigh$(\sigma_r)$/Gaussian$(\sigma_z)$ marginals and each other to within tolerance; the stationary density conserves probability, stays non-negative, and factorises as $g_r(r)\,g_z(z)$ as the separable potential requires.
 
-Planned modules for Phase 3: `forces.py` (conservative + non-conservative fields), `current.py` (probability current and streamlines) — a separate `boundaries.py` was not needed in the end, since the no-flux and $r = 0$ regularity conditions fell out naturally from the finite-volume flux construction in `fp_1d.py`/`fp_axisym.py`.
+Phase 3 is complete: the trap gains a non-conservative scattering push $f_{\text{sc}}(r) = F_0\exp(-2r^2/w_0^2)$ added to the axial force (`forces.py`), breaking detailed balance so no closed-form steady state exists (see the Phase 3 section above). The BD side (`langevin_axisym.integrate_axisym_nc`) adds the push directly to the $z$ drift; the FP side (`fp_nc.py`) generalises the axial Chang–Cooper operator to $r$-dependent coefficients, which forces the $z$-implicit ADI half-step off the shared-matrix `solve_banded` trick Phase 2 used and onto a batched Thomas solve (`fp_nc.batched_thomas`) instead. Because $F_r$ stays purely conservative, the radial marginal remains exactly Rayleigh$(\sigma_r)$ even for $F_0 > 0$ — a free invariant carried over from Phase 2 and checked directly rather than only in the $F_0\to0$ limit. With no Boltzmann steady state to fall back on, `current.py` extracts the steady-state probability current from the same face fluxes the FP operators are built from and checks that it is divergence-free ($\nabla\cdot J \approx 0$, the discrete statement of a stationary density) while still genuinely nonzero — the circulating Brownian vortex the phase set out to find. BD and FP agree on both moments and marginals to within tolerance, $F_0 = 0$ reproduces Phase 2 exactly on both sides (bit-for-bit for BD, to $10^{-6}$ for FP), and `scripts/validate_phase3.py` renders the resulting circulation as a streamline plot. A separate `boundaries.py` was, again, not needed: the no-flux and $r=0$ regularity conditions still fall out of the finite-volume flux construction, unchanged by the added drift term.
 
 ---
 

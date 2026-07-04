@@ -129,6 +129,31 @@ def build_grids(p: AxisymTrapParams, Nr: int = 120, Nz: int = 200,
     return r_c, z_c, dr, dz, V
 
 
+def radial_face_coeffs(p: AxisymTrapParams, r_c: np.ndarray, dr: float):
+    """
+    Chang-Cooper radial face weights (alpha, beta) such that the face
+    flux is J_face[f] = alpha[f]*rho[f-1] - beta[f]*rho[f], for faces
+    f = 0..Nr (boundary faces zeroed for the r=0 regularity / outer
+    no-flux conditions). Factored out of `radial_operator` so that
+    `current.py` can build the actual flux field from a converged rho
+    using exactly the weights the FP solve itself uses, rather than
+    re-deriving them independently.
+
+    Also returns r_face (length Nr+1), the geometric face-weight array
+    w_f = r_face (see `radial_operator`'s docstring for the r dr dz
+    Jacobian this implements).
+    """
+    Nr = len(r_c)
+    D = p.D
+    r_face = np.arange(Nr + 1) * dr
+    Pe = -(p.kr / p.gamma) * r_face * dr / D
+    alpha = (D / dr) * _bernoulli(-Pe)
+    beta = -(D / dr) * _bernoulli(Pe)
+    alpha[0] = beta[0] = 0.0
+    alpha[Nr] = beta[Nr] = 0.0
+    return alpha, beta, r_face
+
+
 def radial_operator(p: AxisymTrapParams, r_c: np.ndarray, dr: float, V: np.ndarray):
     """
     Tridiagonal radial generator L_r, identical for every z-line.
@@ -144,14 +169,7 @@ def radial_operator(p: AxisymTrapParams, r_c: np.ndarray, dr: float, V: np.ndarr
     is set to zero for the reflecting wall.
     """
     Nr = len(r_c)
-    D = p.D
-    r_face = np.arange(Nr + 1) * dr
-    Pe = -(p.kr / p.gamma) * r_face * dr / D
-    alpha = (D / dr) * _bernoulli(-Pe)
-    beta = -(D / dr) * _bernoulli(Pe)
-    alpha[0] = beta[0] = 0.0
-    alpha[Nr] = beta[Nr] = 0.0
-    w = r_face.copy()
+    alpha, beta, w = radial_face_coeffs(p, r_c, dr)
 
     i = np.arange(Nr)
     lower = (1.0 / V) * w[i] * alpha[i]

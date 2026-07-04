@@ -99,3 +99,28 @@ Boltzmann overlaid) and prints seven PASS/FAIL checks, including an explicit
 BD-vs-FP cross-check that the two prior scripts never stated directly. All
 `pytest` checks and every printed check pass. `validate_day1.py` and
 `validate_day2.py` were removed (`git rm`); `README.md` was updated to match.
+
+## 2026-07-04
+
+**Prompted by:** Joshua Cox
+
+**Task 1 — Implement Phase 3.** Claude initialised the structure for the
+Phase-3 `src/` modules — `src/forces.py`, `src/fp_nc.py` (including
+`batched_thomas`), `src/current.py`, and the Phase-3 additions to
+`src/langevin_axisym.py` (`integrate_axisym_nc`), `src/params.py`
+(`NonConservativeParams`), and `src/fp_axisym.py` (the
+`radial_face_coeffs`/`axial_face_coeffs_field` refactor) — with the user
+subsequently writing and editing the actual implementation in these files
+outside of this session. Claude wrote the test suite
+(`tests/test_forces.py`, `tests/test_langevin_nc.py`, `tests/test_fp_nc.py`,
+`tests/test_current.py`), the validation script (`scripts/validate_phase3.py`),
+and the accompanying notebook (`notebooks/phase3_non_conservative.ipynb`),
+and updated `README.md` (layout, module table, Phase-3 physical-model
+section, status).
+
+**Outcome:** Phase 3 is complete — all 34 `pytest` tests pass and
+`validate_phase3.py` reports every check PASS. $F_0=0$ reproduces Phase 2
+exactly (bit-for-bit for BD, to $10^{-6}$ for FP), the radial marginal
+stays exactly Rayleigh($\sigma_r$) for $F_0>0$, and the resulting
+steady-state current is nonzero but divergence-free — a visible
+circulating Brownian vortex in the streamline figure.
