@@ -161,6 +161,146 @@ class TrapParams:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class AxisymTrapParams:
+    """
+    Phase-2 extension of `TrapParams` to a real (r, z) trap geometry.
+
+    A Gaussian beam focus is stiffer transverse to its axis than along it
+    (the beam waist sets the transverse gradient; the much longer
+    Rayleigh range sets the weaker axial one), so the harmonic
+    approximation of the trap potential picks up two independent spring
+    constants instead of one: U(r, z) = (1/2)*kr*r^2 + (1/2)*kz*z^2. The
+    transverse stiffness kr is kept equal to Phase 1's k so the fast
+    (radial) dynamics is a direct continuation of the validated 1D case;
+    kz is softer by the same ratio (5x) Volpe & Volpe use for their
+    beam's aspect ratio, producing the characteristic cigar-shaped
+    equilibrium cloud (sigma_z > sigma_r).
+
+    Because gamma and D depend only on the particle/fluid (not the trap),
+    they are identical to `TrapParams`; only the two stiffnesses split
+    the single relaxation time tau and stationary width sigma_x into a
+    fast transverse pair (tau_r, sigma_r) and a slow axial pair
+    (tau_z, sigma_z).
+    """
+    # Particle & fluid (identical regime to TrapParams)
+    radius: float = 0.5e-6        # m
+    eta: float = 1e-3             # Pa·s
+    T: float = 300.0              # K
+
+    # Trap (anisotropic: transverse matches Phase 1, axial is softer)
+    kr: float = 1e-6              # N/m (transverse/radial stiffness, = Phase-1 k)
+    kz: float = 0.2e-6            # N/m (axial stiffness, ratio kr/kz = 5)
+
+    # Time-stepping: dt is set from the fast (radial) relaxation time,
+    # since that is the timescale the explicit BD integrator must resolve.
+    steps_per_tau_r: int = 200
+
+    kB: float = 1.380649e-23      # J/K
+
+    # ------------------------------------------------------------------ #
+    # Derived quantities (properties so they're always self-consistent)   #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def gamma(self) -> float:
+        """Stokes drag gamma = 6*pi*eta*a [kg/s] -- see TrapParams.gamma."""
+        return 6.0 * math.pi * self.eta * self.radius
+
+    @property
+    def D(self) -> float:
+        """Diffusion coefficient D = kB*T/gamma [m^2/s] -- see TrapParams.D."""
+        return self.kB * self.T / self.gamma
+
+    @property
+    def tau_r(self) -> float:
+        """Transverse relaxation time gamma/kr [s] -- the fast timescale."""
+        return self.gamma / self.kr
+
+    @property
+    def tau_z(self) -> float:
+        """Axial relaxation time gamma/kz [s] -- the slow timescale."""
+        return self.gamma / self.kz
+
+    @property
+    def sigma_r(self) -> float:
+        """Per-axis transverse stationary std sqrt(kB*T/kr) [m].
+
+        Note <r^2> = <x^2> + <y^2> = 2*sigma_r^2 for the radial
+        (cylindrical) coordinate, since r is the modulus of two
+        independent Cartesian Gaussians of this width.
+        """
+        return math.sqrt(self.kB * self.T / self.kr)
+
+    @property
+    def sigma_z(self) -> float:
+        """Axial stationary std sqrt(kB*T/kz) [m]."""
+        return math.sqrt(self.kB * self.T / self.kz)
+
+    @property
+    def dt(self) -> float:
+        """BD integration timestep [s], tau_r/steps_per_tau_r.
+
+        Set from the fast transverse relaxation time: whichever axis
+        relaxes fastest is the one that bounds the explicit
+        Euler-Maruyama stability/accuracy requirement (see TrapParams.dt).
+        """
+        return self.tau_r / self.steps_per_tau_r
+
+    def summary(self) -> str:
+        lines = [
+            "=== AxisymTrapParams ===",
+            f"  radius       = {self.radius*1e6:.2f} um",
+            f"  eta          = {self.eta*1e3:.2f} mPa*s",
+            f"  T            = {self.T:.0f} K",
+            f"  kr           = {self.kr*1e6:.3f} pN/um",
+            f"  kz           = {self.kz*1e6:.3f} pN/um",
+            f"  --- derived ---",
+            f"  gamma        = {self.gamma:.4e} kg/s",
+            f"  D            = {self.D:.4e} m^2/s",
+            f"  tau_r        = {self.tau_r*1e3:.3f} ms",
+            f"  tau_z        = {self.tau_z*1e3:.3f} ms",
+            f"  sigma_r      = {self.sigma_r*1e9:.2f} nm",
+            f"  sigma_z      = {self.sigma_z*1e9:.2f} nm",
+            f"  dt           = {self.dt*1e6:.2f} us   (tau_r/{self.steps_per_tau_r})",
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class NonConservativeParams(AxisymTrapParams):
+    """
+    Phase-3 extension of `AxisymTrapParams`: adds a Gaussian-beam-shaped
+    non-conservative scattering push along z,
+
+        f_sc(r) = F0 * exp(-2 r^2 / w0^2),
+
+    on top of the Phase-2 harmonic trap. Physically this stands in for
+    the forward-scattering (radiation-pressure) force of the dipole
+    approximation (Jones/Maragò/Volpe Ch. 3): unlike the gradient force,
+    it has no scalar potential, because it points along the beam axis
+    (z) while its magnitude tracks the transverse beam intensity
+    profile (r) -- a mismatch between the force's direction and the
+    direction it varies in, which is exactly what gives the combined
+    field a nonzero curl in the meridian plane (see `forces.py`).
+
+    F0 = 0 (the default) must reproduce `AxisymTrapParams` exactly, so
+    that turning the push off is a genuine regression test against
+    Phase 2 rather than a separate code path. w0 defaults to sigma_r --
+    the trap's own transverse scale -- unless overridden, so the push
+    acts on the same lengthscale as the trap.
+    """
+    F0: float = 0.0            # N, scattering-push magnitude at r = 0
+    w0: float | None = None    # m, transverse 1/e^2 width of the push; None -> sigma_r
+
+    def __post_init__(self):
+        if self.w0 is None:
+            object.__setattr__(self, "w0", self.sigma_r)
+
+
 if __name__ == "__main__":
     p = TrapParams()
     print(p.summary())
+    print()
+    p2 = AxisymTrapParams()
+    print(p2.summary())
