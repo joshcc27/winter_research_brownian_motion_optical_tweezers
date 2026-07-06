@@ -76,7 +76,7 @@ pytest -q                         # regression tests
 
 ## Physical model and conventions
 
-All quantities are SI. The default parameter set is a silica microsphere in water — the same physical regime (and viscosity/temperature) as Volpe & Volpe's *Simulation of a Brownian particle in an optical trap*, used here as a well-characterised validation baseline. The specific numbers below are this project's own choice within that regime, not a reproduction of their exact figures (their paper uses $a = 1\,\mu\text{m}$, $m = 11$ pg, and states trap stiffness in fN/nm rather than N/m). For nanoparticle studies, reduce $a$ and $k$; the mathematics is unchanged, only the regime and the numbers move.
+All quantities are SI. The default parameter set is a silica microsphere in water — the same physical regime (and viscosity/temperature) as Volpe & Volpe's Simulation of a Brownian particle in an optical trap, used here as a well-characterised validation baseline. The specific numbers below are this project's own choice within that regime, not a reproduction of their exact figures (their paper uses $a = 1\,\mu\text{m}$, $m = 11$ pg, and states trap stiffness in fN/nm rather than N/m). For nanoparticle studies, reduce $a$ and $k$; the mathematics is unchanged, only the regime and the numbers move.
 
 | Parameter | Symbol | Default | Note |
 |---|---|---|---|
@@ -141,6 +141,6 @@ Winter Research Project, University of Queensland, June–July 2026. Supervisor:
 
 References
 
-- Volpe & Volpe, *Simulation of a Brownian particle in an optical trap*, Am. J. Phys. **81**, 224 (2013)
+- Volpe & Volpe, *Simulation of a Brownian particle in an optical trap*, Am. J. Phys. 81, 224 (2013)
 - Jones, Maragò & Volpe, *Optical Tweezers: Principles and Applications* (Cambridge, 2015) — Ch. 7 (Brownian motion) for Phases 1–2; Ch. 3 (dipole approximation) for the force field; Ch. 20–21 (statistical physics, nanothermodynamics) for the non-conservative applications.
 
