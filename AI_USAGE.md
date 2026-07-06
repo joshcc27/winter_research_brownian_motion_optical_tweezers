@@ -124,3 +124,57 @@ exactly (bit-for-bit for BD, to $10^{-6}$ for FP), the radial marginal
 stays exactly Rayleigh($\sigma_r$) for $F_0>0$, and the resulting
 steady-state current is nonzero but divergence-free — a visible
 circulating Brownian vortex in the streamline figure.
+
+## 2026-07-06
+
+**Prompted by:** Joshua Cox
+
+**Task 1 — Test suite and report/documentation for Phase 4 (escape and
+entry).** Phase 4 followed the same division of labour as the prior phases:
+all source implementation and the validation script — `src/forces.py` (the
+Gaussian-beam potential and force), `GaussianBeamParams` in `src/params.py`,
+`src/analytics_escape.py`, `src/escape.py`, `src/langevin_escape.py`,
+`src/entry.py`, and `scripts/validate_phase4.py` — was written by the user.
+Claude wrote the full Phase-4 regression test suite
+(`tests/test_gaussian_beam.py`, `tests/test_analytics_escape.py`,
+`tests/test_escape.py`, `tests/test_langevin_escape.py`,
+`tests/test_entry.py`), the project report (`report/report.tex`, compiled to
+`report/report.pdf`), and the documentation updates (`README.md` and this
+log).
+
+Work covered by Phase 4, in order:
+
+1. **Finite-depth potential** (`src/forces.py`, `GaussianBeamParams` in
+   `src/params.py`): the Gaussian-beam gradient potential and its closed-form
+   force, with a finite-difference cross-check, proven to reduce to the
+   Phase-2/3 harmonic $k_r, k_z$ near the focus (the built-in regression check).
+2. **Analytic limits** (`src/analytics_escape.py`): the exact 1D mean-first-
+   passage-time double integral, its deep-well Kramers/Arrhenius asymptotic, and
+   the Debye–Smoluchowski capture rate — restoring the analytic third leg.
+3. **FP escape** (`src/escape.py`): the backward-equation MFPT (self-adjoint
+   tridiagonal solve, reusing `thomas_solve`) and the survival-decay $S(t)$
+   route (Chang–Cooper forward + Crank–Nicolson with an absorbing wall).
+4. **BD escape** (`src/langevin_escape.py`): absorbing test + first-passage-time
+   recording, validated against the FP MFPT within Monte-Carlo error.
+5. **Entry** (`src/entry.py`): the steady spherical capture-current solve,
+   cross-checked against Debye–Smoluchowski (and $4\pi DR$ for $U=0$).
+6. **Power sweep** (`GaussianBeamParams.from_power`, `scripts/validate_phase4.py`):
+   the dipole-model $P\to U_0\to(k_r,k_z)$ parametrization and the
+   retention-vs-contamination trade-off figure with the compromise power $P^\*$.
+
+Two bugs were found and fixed by the validation itself: the reflecting-boundary
+node in the backward MFPT solver was missing a factor-2 (half-cell) correction,
+exposed by the free-particle limit; and the FP capture rate needed an
+infinite-reservoir tail correction to match the analytic Debye rate. A
+deep-well conditioning limit of the tridiagonal MFPT solve ($U_0/k_BT\gtrsim20$)
+was identified and documented, with the analytic quadrature carrying that regime.
+
+**Outcome:** Phase 4 is complete — all 82 `pytest` tests pass (48 new), the
+Phase-1–3 validation scripts still pass unchanged (no regression), and
+`validate_phase4.py` reports every check PASS: FP-vs-analytic escape MFPT agrees
+to $\sim10^{-4}$ across the sweep, BD-vs-FP escape to $\sim0.9\%$, FP-vs-analytic
+capture to $\sim10^{-7}$, and the harmonic-limit regression is exact. The
+headline result is the retention-vs-contamination trade-off for a ~50 nm
+nanodiamond in water, with a compromise power $P^\*\approx11$ mW (well depth
+$\approx10\,k_BT$) at $n_{\text{bulk}}=2\times10^{13}\,\text{m}^{-3}$, saved to
+`figures/phase4_validation.png`.

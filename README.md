@@ -35,13 +35,18 @@ The organising principle is that every result is checked two independent ways, i
 │   ├── langevin_axisym.py   # Phase-2/3 axisymmetric BD integrator (3 x Cartesian OU, + Phase-3 scattering push)
 │   ├── analytics_axisym.py  # Phase-2 closed-form ground truth (Rayleigh/Gaussian)
 │   ├── fp_axisym.py         # Phase-2 (r,z) Fokker-Planck solver (Chang-Cooper + Peaceman-Rachford ADI)
-│   ├── forces.py            # Phase-3 conservative + non-conservative force field
+│   ├── forces.py            # Phase-3 non-conservative force + Phase-4 finite-depth Gaussian-beam potential
 │   ├── fp_nc.py             # Phase-3 non-conservative FP solver (r-dependent axial operator, batched Thomas)
-│   └── current.py           # Phase-3 probability current + divergence check
+│   ├── current.py           # Phase-3 probability current + divergence check
+│   ├── analytics_escape.py  # Phase-4 exact 1D MFPT, deep-well Kramers/Arrhenius, Debye-Smoluchowski capture
+│   ├── escape.py            # Phase-4 FP escape: backward-equation MFPT + survival-decay S(t)
+│   ├── langevin_escape.py   # Phase-4 BD escape: absorbing wall + first-passage times
+│   └── entry.py             # Phase-4 steady capture current (bulk source -> absorbing core)
 ├── scripts/
 │   ├── validate_phase1.py   # Phase 1 FP validation + BD cross-check
 │   ├── validate_phase2.py   # Phase 2 FP validation + BD cross-check
-│   └── validate_phase3.py   # Phase 3 FP validation + BD cross-check + current/vortex figure
+│   ├── validate_phase3.py   # Phase 3 FP validation + BD cross-check + current/vortex figure
+│   └── validate_phase4.py   # Phase 4 escape/entry validation + retention-vs-contamination trade-off figure
 ├── tests/
 │   ├── test_langevin.py         # Phase-1 BD regression tests
 │   ├── test_fp1d.py             # Phase-1 FP regression tests
@@ -50,13 +55,18 @@ The organising principle is that every result is checked two independent ways, i
 │   ├── test_forces.py           # Phase-3 force-field / curl regression tests
 │   ├── test_langevin_nc.py      # Phase-3 BD regression tests (incl. F0=0 vs Phase 2)
 │   ├── test_fp_nc.py            # Phase-3 FP regression tests (incl. F0=0 vs Phase 2, batched Thomas)
-│   └── test_current.py          # Phase-3 current/divergence regression tests
+│   ├── test_current.py          # Phase-3 current/divergence regression tests
+│   ├── test_gaussian_beam.py    # Phase-4 finite-depth potential + harmonic-limit + power-parametrization tests
+│   ├── test_analytics_escape.py # Phase-4 analytic MFPT / Arrhenius / Smoluchowski tests
+│   ├── test_escape.py           # Phase-4 FP escape (backward MFPT + survival) tests
+│   ├── test_langevin_escape.py  # Phase-4 BD escape (first-passage vs FP) tests
+│   └── test_entry.py            # Phase-4 capture (FP vs Debye-Smoluchowski) tests
 └── figures/             # generated output
 ```
 
 | Module | Role | Phase |
 |---|---|---|
-| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ (`TrapParams`), their anisotropic $(r,z)$ counterparts (`AxisymTrapParams`), and the Phase-3 scattering-push parameters $F_0, w_0$ (`NonConservativeParams`) | 0 / 2 / 3 |
+| `src/params.py` | Physical parameters and the derived quantities $\gamma, D, \tau, \sigma_x$ (`TrapParams`), their anisotropic $(r,z)$ counterparts (`AxisymTrapParams`), the Phase-3 scattering-push parameters $F_0, w_0$ (`NonConservativeParams`), and the Phase-4 finite-depth Gaussian-beam trap with a power parametrization (`GaussianBeamParams`, `from_power`) | 0 / 2 / 3 / 4 |
 | `src/langevin.py` | Euler–Maruyama integrator for the 1D overdamped Langevin SDE | 1 |
 | `src/analytics.py` | Closed-form OU / Boltzmann results used as the ground truth | 1 |
 | `src/fp_1d.py` | Chang–Cooper / Crank–Nicolson solver for the 1D Fokker–Planck equation | 1 |
@@ -77,6 +87,17 @@ The organising principle is that every result is checked two independent ways, i
 | `tests/test_langevin_nc.py` | Asserts $F_0=0$ reproduces Phase-2 BD bit-for-bit, $\langle r^2\rangle$ stays Rayleigh for $F_0>0$, and the push shifts $\langle z\rangle$ in the expected direction | 3 |
 | `tests/test_fp_nc.py` | Asserts $F_0=0$ reproduces Phase-2 FP to $10^{-6}$, `batched_thomas` matches `fp_1d.thomas_solve`, and conservation/positivity/Rayleigh hold for $F_0>0$ | 3 |
 | `tests/test_current.py` | Asserts $\nabla\cdot J$ matches the FP operators' own action exactly (discretisation identity), $J\equiv0$ for $F_0=0$, and $J$ is nonzero-but-divergence-free for $F_0>0$ | 3 |
+| `src/forces.py` (Phase 4) | Adds the finite-depth Gaussian-beam potential $U(r,z)$ and its gradient force, plus a finite-difference cross-check; reduces to the harmonic $k_r, k_z$ near the focus | 4 |
+| `src/analytics_escape.py` | Exact 1D mean-first-passage-time double integral, deep-well Kramers/Arrhenius asymptotic, and the Debye–Smoluchowski capture rate — the recovered analytic third leg | 4 |
+| `src/escape.py` | FP retention two ways: the backward-equation MFPT (self-adjoint tridiagonal, primary) and survival-decay $S(t)$ with an absorbing wall (Chang–Cooper + Crank–Nicolson, cross-check) | 4 |
+| `src/langevin_escape.py` | BD escape: adds an absorbing test and first-passage-time recording to the integrator; validated against the FP MFPT | 4 |
+| `src/entry.py` | Steady spherical capture solve (bulk source → absorbing core) via a self-adjoint tridiagonal system; capture rate cross-checked against Debye–Smoluchowski | 4 |
+| `scripts/validate_phase4.py` | Power sweep: escape (BD/FP/analytic) + entry (FP/analytic) checks and the retention-vs-contamination trade-off figure with the compromise power $P^*$ | 4 |
+| `tests/test_gaussian_beam.py` | Asserts the finite-depth potential's harmonic limit reproduces $k_r, k_z$ three ways, its finite-depth signatures, conservativity, and the `from_power` parametrization | 4 |
+| `tests/test_analytics_escape.py` | Asserts the exact MFPT matches the free-particle limit and is shift-invariant, the Arrhenius scaling, and Debye→Smoluchowski for $U=0$ | 4 |
+| `tests/test_escape.py` | Asserts the FP backward MFPT and survival-decay routes both match the analytic MFPT, with positivity preserved | 4 |
+| `tests/test_langevin_escape.py` | Asserts the BD first-passage MFPT matches the FP MFPT within Monte-Carlo error | 4 |
+| `tests/test_entry.py` | Asserts the FP capture rate matches Debye–Smoluchowski (and $4\pi DR$ for $U=0$) | 4 |
 
 ---
 
@@ -94,6 +115,7 @@ From the repo root:
 python scripts/validate_phase1.py   # Phase 1 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
 python scripts/validate_phase2.py   # Phase 2 BD vs FP vs analytic — writes figures/, prints PASS/FAIL
 python scripts/validate_phase3.py   # Phase 3 BD vs FP + current/vortex checks — writes figures/, prints PASS/FAIL
+python scripts/validate_phase4.py   # Phase 4 escape/entry BD vs FP vs analytic + trade-off figure — writes figures/, prints PASS/FAIL
 pytest -q                           # regression tests
 ```
 
@@ -182,7 +204,7 @@ nonzero for $F_0 \neq 0$: no scalar potential reproduces $F$, so no Boltzmann st
 | 1 | 1D conservative test rig | done |
 | 2 | Axisymmetric $(r, z)$ conservative | done |
 | 3 | Non-conservative forces | done |
-| 4 | Applications as volume-exploring probe | planned |
+| 4 | Entry/exit: retention vs contamination | done |
 | 5 | Write-up | planned |
 
 Phase 1 is complete: the Brownian-dynamics integrator and the 1D Fokker–Planck solver (Crank–Nicolson in time, Chang–Cooper flux scheme in space) both agree with the analytic OU/Boltzmann result and with each other.
@@ -190,6 +212,8 @@ Phase 1 is complete: the Brownian-dynamics integrator and the 1D Fokker–Planck
 Phase 2 is complete: the axisymmetric $(r, z)$ trap is solved two independent ways — three decoupled Cartesian Ornstein–Uhlenbeck processes (`langevin_axisym.py`) and a cylindrical finite-volume Fokker–Planck solve (`fp_axisym.py`), the latter using a staggered radial grid (the $r = 0$ regularity condition falls out of the geometry rather than needing an explicit boundary rule) and Peaceman–Rachford ADI time-stepping that reuses the Phase-1 tridiagonal solve direction by direction. Both match the analytic Rayleigh$(\sigma_r)$/Gaussian$(\sigma_z)$ marginals and each other to within tolerance; the stationary density conserves probability, stays non-negative, and factorises as $g_r(r)\,g_z(z)$ as the separable potential requires.
 
 Phase 3 is complete: the trap gains a non-conservative scattering push $f_{\text{sc}}(r) = F_0\exp(-2r^2/w_0^2)$ added to the axial force (`forces.py`), breaking detailed balance so no closed-form steady state exists (see the Phase 3 section above). The BD side (`langevin_axisym.integrate_axisym_nc`) adds the push directly to the $z$ drift; the FP side (`fp_nc.py`) generalises the axial Chang–Cooper operator to $r$-dependent coefficients, which forces the $z$-implicit ADI half-step off the shared-matrix `solve_banded` trick Phase 2 used and onto a batched Thomas solve (`fp_nc.batched_thomas`) instead. Because $F_r$ stays purely conservative, the radial marginal remains exactly Rayleigh$(\sigma_r)$ even for $F_0 > 0$ — a free invariant carried over from Phase 2 and checked directly rather than only in the $F_0\to0$ limit. With no Boltzmann steady state to fall back on, `current.py` extracts the steady-state probability current from the same face fluxes the FP operators are built from and checks that it is divergence-free ($\nabla\cdot J \approx 0$, the discrete statement of a stationary density) while still genuinely nonzero — the circulating Brownian vortex the phase set out to find. BD and FP agree on both moments and marginals to within tolerance, $F_0 = 0$ reproduces Phase 2 exactly on both sides (bit-for-bit for BD, to $10^{-6}$ for FP), and `scripts/validate_phase3.py` renders the resulting circulation as a streamline plot. A separate `boundaries.py` was, again, not needed: the no-flux and $r=0$ regularity conditions still fall out of the finite-volume flux construction, unchanged by the added drift term.
+
+Phase 4 is complete: the harmonic well (infinitely deep — no escape, no entry) is replaced by the **finite-depth Gaussian-beam potential** $U(r,z) = -U_0\,[1+(z/z_R)^2]^{-1}\exp\!\big(\!-2r^2/(w_0^2[1+(z/z_R)^2])\big)$ (`forces.py`, `GaussianBeamParams`), which is harmonic near the focus — reproducing the Phase-2/3 $k_r=4U_0/w_0^2$, $k_z=2U_0/z_R^2$ as a built-in regression check, the Phase-4 analogue of "$F_0=0$ recovers Phase 2" — but flattens to zero far away, giving a finite depth $U_0$. The controlling number becomes $U_0/k_BT$, and **beam power $P$ becomes the independent variable** through a dipole-model parametrization ($P\to U_0\to k_r,k_z$; `from_power`, a ~50 nm nanodiamond in water). Two new observables are each computed and cross-checked three ways, restoring the analytic third leg Phase 3 had lost: **retention** — the mean first-passage time out of the well — from a Brownian-dynamics first-passage simulation (`langevin_escape.py`), an FP backward-equation solve and a survival-decay $S(t)$ integral (`escape.py`), and the exact 1D MFPT double integral with its deep-well Kramers/Arrhenius $\propto\exp(U_0/k_BT)$ limit (`analytics_escape.py`); and **entry** — the diffusion-limited capture rate from the bulk — from an FP steady capture-current solve (`entry.py`) checked against the closed-form Debye–Smoluchowski rate (which reduces to $4\pi DR$ for $U=0$). `scripts/validate_phase4.py` sweeps the power and produces the headline result: retention time rises exponentially with $P$ while the time-to-contamination falls, and the single-particle holding window $\min(T_{\text{esc}}, 1/k_{\text{in}}n_{\text{bulk}})$ is maximised at the crossover — the **compromise power** $P^\*$ (≈ 11 mW at $n_{\text{bulk}}=2\times10^{13}\,\text{m}^{-3}$ for the default nanodiamond; $P^\*$ shifts with concentration). The escape here is from a conservative gradient trap; the deep-well tridiagonal MFPT solve becomes ill-conditioned past $U_0/k_BT\sim20$ (the $\exp(U_0/k_BT)$ dynamic range), where the unconditionally-stable analytic quadrature takes over.
 
 ---
 
@@ -200,6 +224,7 @@ Phase 3 is complete: the trap gains a non-conservative scattering push $f_{\text
 - At strong drift (stiff trap, domain edges) the advection term is stiff — central differencing of the Fokker–Planck flux goes unstable or negative once the cell Péclet number exceeds 2, which is why the Phase 1 solver (`fp_1d.py`) uses the Chang–Cooper exponential-fitting scheme instead, which is positivity-preserving for any Péclet number.
 - Single particle, no inter-particle interactions (the ideal-gas / barometric picture).
 - The non-conservative field in Phase 3 starts as a simple analytic model (harmonic gradient + $r$-dependent axial push) before any T-matrix-computed forces.
+- Phase 4 reduces escape to the 1D axial channel and entry to the spherical radial channel — the coordinates where the analytic ground truth (Kramers MFPT, Debye–Smoluchowski) is exact and the BD/FP/analytic three-way check is clean. The full 2D axisymmetric first-passage problem is a natural extension. The escape rate also depends on where the absorbing "trap edge" is placed (a few $z_R$); this shifts retention by a power-independent prefactor, not the $\exp(U_0/k_BT)$ scaling, and is negligible in the deep-well regime.
 
 ---
 

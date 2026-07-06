@@ -1,0 +1,138 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{JonesMaragoVolpe2015}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction and physical setting}{2}{section.1}\protected@file@percent }
+\newlabel{eq:harmonic-potential}{{1}{2}{Introduction and physical setting}{equation.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Project roadmap. This report presents the mathematics and physics of Phases 1--4, with the numerical validation summarised compactly in \S  \ref {sec:validation}.}}{3}{table.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:phases}{{1}{3}{Project roadmap. This report presents the mathematics and physics of Phases 1--4, with the numerical validation summarised compactly in \S \ref {sec:validation}}{table.caption.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Stochastic dynamics of the trapped particle}{3}{section.2}\protected@file@percent }
+\newlabel{sec:langevin}{{2}{3}{Stochastic dynamics of the trapped particle}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Hydrodynamic drag}{3}{subsection.2.1}\protected@file@percent }
+\newlabel{sec:drag}{{2.1}{3}{Hydrodynamic drag}{subsection.2.1}{}}
+\newlabel{eq:stokes}{{2}{3}{Hydrodynamic drag}{equation.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}The inertial Langevin equation and fluctuation--dissipation}{3}{subsection.2.2}\protected@file@percent }
+\newlabel{eq:full-langevin}{{4}{3}{The inertial Langevin equation and fluctuation--dissipation}{equation.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}The overdamped (Smoluchowski) limit}{4}{subsection.2.3}\protected@file@percent }
+\newlabel{eq:overdamped-sde}{{5}{4}{The overdamped (Smoluchowski) limit}{equation.5}{}}
+\newlabel{eq:einstein}{{6}{4}{The overdamped (Smoluchowski) limit}{equation.6}{}}
+\newlabel{eq:tau}{{7}{4}{The overdamped (Smoluchowski) limit}{equation.7}{}}
+\newlabel{eq:sigmax}{{8}{4}{The overdamped (Smoluchowski) limit}{equation.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Exact solution of the Ornstein--Uhlenbeck process}{4}{subsection.2.4}\protected@file@percent }
+\newlabel{sec:ou-solution}{{2.4}{4}{Exact solution of the Ornstein--Uhlenbeck process}{subsection.2.4}{}}
+\newlabel{eq:ou-solution}{{10}{4}{Exact solution of the Ornstein--Uhlenbeck process}{equation.10}{}}
+\newlabel{eq:ou-mean}{{11}{4}{Exact solution of the Ornstein--Uhlenbeck process}{equation.11}{}}
+\citation{Gardiner2009}
+\newlabel{eq:ou-variance}{{13}{5}{Exact solution of the Ornstein--Uhlenbeck process}{equation.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}The Fokker--Planck (Smoluchowski) description}{5}{section.3}\protected@file@percent }
+\newlabel{sec:fp}{{3}{5}{The Fokker--Planck (Smoluchowski) description}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}From the SDE to the forward Kolmogorov equation}{5}{subsection.3.1}\protected@file@percent }
+\newlabel{eq:fp}{{14}{5}{From the SDE to the forward Kolmogorov equation}{equation.14}{}}
+\newlabel{eq:current}{{15}{5}{From the SDE to the forward Kolmogorov equation}{equation.15}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Detailed balance and the Boltzmann stationary state}{5}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:detailed-balance}{{3.2}{5}{Detailed balance and the Boltzmann stationary state}{subsection.3.2}{}}
+\newlabel{eq:boltzmann}{{17}{5}{Detailed balance and the Boltzmann stationary state}{equation.17}{}}
+\citation{ChangCooper1970}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Numerical methods for the one-dimensional trap}{6}{section.4}\protected@file@percent }
+\newlabel{sec:numerics1d}{{4}{6}{Numerical methods for the one-dimensional trap}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Brownian dynamics: Euler--Maruyama}{6}{subsection.4.1}\protected@file@percent }
+\newlabel{eq:em-update}{{18}{6}{Brownian dynamics: Euler--Maruyama}{equation.18}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Fokker--Planck: the Chang--Cooper spatial scheme}{6}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:chang-cooper}{{4.2}{6}{Fokker--Planck: the Chang--Cooper spatial scheme}{subsection.4.2}{}}
+\newlabel{eq:cc-flux}{{19}{6}{Fokker--Planck: the Chang--Cooper spatial scheme}{equation.19}{}}
+\citation{VolpeVolpe2013}
+\citation{VolpeVolpe2013}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Time integration: Crank--Nicolson}{7}{subsection.4.3}\protected@file@percent }
+\newlabel{eq:cn}{{20}{7}{Time integration: Crank--Nicolson}{equation.20}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Phase-1 validation in brief}{7}{subsection.4.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Baseline physical parameters and derived quantities (\texttt  {src/params.py}): a silica microsphere in water at room temperature, the regime of Volpe \& Volpe's tutorial treatment \cite  {VolpeVolpe2013}. Phases 2--3 reuse this regime with an anisotropic stiffness (Table~\ref {tab:params2}); Phase 4 re-parametrises the trap by beam power for a nanodiamond (\S  \ref {sec:power}).}}{7}{table.caption.3}\protected@file@percent }
+\newlabel{tab:params}{{2}{7}{Baseline physical parameters and derived quantities (\texttt {src/params.py}): a silica microsphere in water at room temperature, the regime of Volpe \& Volpe's tutorial treatment \cite {VolpeVolpe2013}. Phases 2--3 reuse this regime with an anisotropic stiffness (Table~\ref {tab:params2}); Phase 4 re-parametrises the trap by beam power for a nanodiamond (\S \ref {sec:power})}{table.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Phase 2: the axisymmetric $(r,z)$ trap}{7}{section.5}\protected@file@percent }
+\newlabel{sec:phase2}{{5}{7}{Phase 2: the axisymmetric $(r,z)$ trap}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Anisotropic harmonic potential and separability}{7}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Phase-1 validation (\texttt  {scripts/validate\_phase1.py}): Brownian-dynamics and Fokker--Planck relaxation of the mean and variance against the analytic OU curves \eqref  {eq:ou-mean}--\eqref  {eq:ou-variance}, and both stationary densities against the Boltzmann distribution \eqref  {eq:boltzmann}.}}{8}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:phase1}{{1}{8}{Phase-1 validation (\texttt {scripts/validate\_phase1.py}): Brownian-dynamics and Fokker--Planck relaxation of the mean and variance against the analytic OU curves \eqref {eq:ou-mean}--\eqref {eq:ou-variance}, and both stationary densities against the Boltzmann distribution \eqref {eq:boltzmann}}{figure.caption.4}{}}
+\newlabel{eq:U-axisym}{{21}{8}{Anisotropic harmonic potential and separability}{equation.21}{}}
+\newlabel{eq:axisym-sde}{{22}{8}{Anisotropic harmonic potential and separability}{equation.22}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}The cylindrical Smoluchowski equation}{8}{subsection.5.2}\protected@file@percent }
+\newlabel{eq:fp-axisym}{{24}{8}{The cylindrical Smoluchowski equation}{equation.24}{}}
+\citation{PeacemanRachford1955}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Phase-2 anisotropic trap parameters (\texttt  {AxisymTrapParams}); particle and fluid as in Table~\ref {tab:params}.}}{9}{table.caption.5}\protected@file@percent }
+\newlabel{tab:params2}{{3}{9}{Phase-2 anisotropic trap parameters (\texttt {AxisymTrapParams}); particle and fluid as in Table~\ref {tab:params}}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Stationary state: Rayleigh and Gaussian marginals}{9}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:rayleigh}{{5.3}{9}{Stationary state: Rayleigh and Gaussian marginals}{subsection.5.3}{}}
+\newlabel{eq:boltzmann-axisym}{{25}{9}{Stationary state: Rayleigh and Gaussian marginals}{equation.25}{}}
+\newlabel{eq:rayleigh}{{27}{9}{Stationary state: Rayleigh and Gaussian marginals}{equation.27}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Numerical treatment in brief}{9}{subsection.5.4}\protected@file@percent }
+\citation{JonesMaragoVolpe2015}
+\citation{Roichman2008}
+\citation{Sun2009}
+\newlabel{eq:adi}{{29}{10}{Numerical treatment in brief}{equation.29}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Phase 3: non-conservative forces and the Brownian vortex}{10}{section.6}\protected@file@percent }
+\newlabel{sec:phase3}{{6}{10}{Phase 3: non-conservative forces and the Brownian vortex}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}The scattering force and its curl}{10}{subsection.6.1}\protected@file@percent }
+\newlabel{eq:nc-force}{{30}{10}{The scattering force and its curl}{equation.30}{}}
+\newlabel{eq:curl}{{31}{10}{The scattering force and its curl}{equation.31}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Breakdown of detailed balance: the non-equilibrium steady state}{10}{subsection.6.2}\protected@file@percent }
+\newlabel{eq:divJ}{{32}{10}{Breakdown of detailed balance: the non-equilibrium steady state}{equation.32}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}An exact invariant: the radial marginal stays Rayleigh}{11}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:rayleigh-invariant}{{6.3}{11}{An exact invariant: the radial marginal stays Rayleigh}{subsection.6.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Numerical treatment and the current diagnostic in brief}{11}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Phase 4: the finite-depth trap -- escape, capture, and the power trade-off}{11}{section.7}\protected@file@percent }
+\newlabel{sec:phase4}{{7}{11}{Phase 4: the finite-depth trap -- escape, capture, and the power trade-off}{section.7}{}}
+\citation{JonesMaragoVolpe2015}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces The Brownian vortex (\texttt  {scripts/validate\_phase3.py}): streamlines of the stationary probability current $\mathbf  J(r,z)$, coloured by $\log _{10}|\mathbf  J|$, for $F_0>0$. The current is nonzero and circulating yet divergence-free -- the defining signature of the non-equilibrium steady state of \S  \ref {sec:phase3}.}}{12}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:phase3}{{2}{12}{The Brownian vortex (\texttt {scripts/validate\_phase3.py}): streamlines of the stationary probability current $\mathbf J(r,z)$, coloured by $\log _{10}|\mathbf J|$, for $F_0>0$. The current is nonzero and circulating yet divergence-free -- the defining signature of the non-equilibrium steady state of \S \ref {sec:phase3}}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}The Gaussian-beam potential and its harmonic limit}{12}{subsection.7.1}\protected@file@percent }
+\newlabel{sec:gaussian-beam}{{7.1}{12}{The Gaussian-beam potential and its harmonic limit}{subsection.7.1}{}}
+\newlabel{eq:gaussian-beam}{{34}{12}{The Gaussian-beam potential and its harmonic limit}{equation.34}{}}
+\newlabel{eq:harmonic-limit}{{36}{12}{The Gaussian-beam potential and its harmonic limit}{equation.36}{}}
+\citation{Gardiner2009}
+\citation{Hanggi1990}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Power parametrisation via the dipole polarizability}{13}{subsection.7.2}\protected@file@percent }
+\newlabel{sec:power}{{7.2}{13}{Power parametrisation via the dipole polarizability}{subsection.7.2}{}}
+\newlabel{eq:polarizability}{{38}{13}{Power parametrisation via the dipole polarizability}{equation.38}{}}
+\newlabel{eq:U0-power}{{39}{13}{Power parametrisation via the dipole polarizability}{equation.39}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Escape: exact mean-first-passage-time theory}{13}{subsection.7.3}\protected@file@percent }
+\newlabel{sec:mfpt}{{7.3}{13}{Escape: exact mean-first-passage-time theory}{subsection.7.3}{}}
+\newlabel{eq:backward}{{40}{13}{Escape: exact mean-first-passage-time theory}{equation.40}{}}
+\newlabel{eq:self-adjoint}{{41}{13}{Escape: exact mean-first-passage-time theory}{equation.41}{}}
+\newlabel{eq:mfpt}{{42}{13}{Escape: exact mean-first-passage-time theory}{equation.42}{}}
+\citation{Kramers1940}
+\citation{Hanggi1990}
+\citation{Smoluchowski1917}
+\citation{Debye1942}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}The deep-well limit: Kramers/Arrhenius scaling}{14}{subsection.7.4}\protected@file@percent }
+\newlabel{sec:kramers}{{7.4}{14}{The deep-well limit: Kramers/Arrhenius scaling}{subsection.7.4}{}}
+\newlabel{eq:factorised}{{43}{14}{The deep-well limit: Kramers/Arrhenius scaling}{equation.43}{}}
+\newlabel{eq:arrhenius}{{45}{14}{The deep-well limit: Kramers/Arrhenius scaling}{equation.45}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Entry: the Debye--Smoluchowski capture rate}{14}{subsection.7.5}\protected@file@percent }
+\newlabel{sec:capture}{{7.5}{14}{Entry: the Debye--Smoluchowski capture rate}{subsection.7.5}{}}
+\newlabel{eq:debye}{{47}{14}{Entry: the Debye--Smoluchowski capture rate}{equation.47}{}}
+\newlabel{eq:tcont}{{48}{15}{Entry: the Debye--Smoluchowski capture rate}{equation.48}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6}The retention--contamination trade-off and the compromise power}{15}{subsection.7.6}\protected@file@percent }
+\newlabel{sec:tradeoff}{{7.6}{15}{The retention--contamination trade-off and the compromise power}{subsection.7.6}{}}
+\newlabel{eq:pstar}{{50}{15}{The retention--contamination trade-off and the compromise power}{equation.50}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.7}Numerical treatment in brief}{15}{subsection.7.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The Phase-4 trade-off (\texttt  {scripts/validate\_phase4.py}): retention time $T_{\rm  esc}(P)$ (rising exponentially, Eq.~\eqref  {eq:arrhenius}) against time-to-contamination $T_{\rm  cont}(P)$ (falling, Eqs.~\eqref  {eq:debye}--\eqref  {eq:tcont}) across the beam-power sweep for a $\sim 50\,\mathrm  {nm}$ nanodiamond in water. The single-particle holding window $\min (T_{\rm  esc}, T_{\rm  cont})$ is maximised at the crossover, the compromise power $P^{*}$.}}{16}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:phase4}{{3}{16}{The Phase-4 trade-off (\texttt {scripts/validate\_phase4.py}): retention time $T_{\rm esc}(P)$ (rising exponentially, Eq.~\eqref {eq:arrhenius}) against time-to-contamination $T_{\rm cont}(P)$ (falling, Eqs.~\eqref {eq:debye}--\eqref {eq:tcont}) across the beam-power sweep for a $\sim 50\,\mathrm {nm}$ nanodiamond in water. The single-particle holding window $\min (T_{\rm esc}, T_{\rm cont})$ is maximised at the crossover, the compromise power $P^{*}$}{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Validation summary}{16}{section.8}\protected@file@percent }
+\newlabel{sec:validation}{{8}{16}{Validation summary}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Discussion}{16}{section.9}\protected@file@percent }
+\bibcite{JonesMaragoVolpe2015}{1}
+\bibcite{VolpeVolpe2013}{2}
+\bibcite{ChangCooper1970}{3}
+\bibcite{Gardiner2009}{4}
+\bibcite{PeacemanRachford1955}{5}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Conclusion}{17}{section.10}\protected@file@percent }
+\bibcite{Roichman2008}{6}
+\bibcite{Sun2009}{7}
+\bibcite{Kramers1940}{8}
+\bibcite{Hanggi1990}{9}
+\bibcite{Smoluchowski1917}{10}
+\bibcite{Debye1942}{11}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Symbol reference}{18}{appendix.A}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Symbols used throughout this report, matching the conventions of \texttt  {src/params.py}. Note the reuse of $k$ and $P$ across contexts, disambiguated in the text.}}{18}{table.caption.9}\protected@file@percent }
+\gdef \@abspage@last{18}

@@ -298,9 +298,137 @@ class NonConservativeParams(AxisymTrapParams):
             object.__setattr__(self, "w0", self.sigma_r)
 
 
+@dataclass(frozen=True)
+class GaussianBeamParams(AxisymTrapParams):
+    """
+    Phase-4 finite-depth trap: the true Gaussian-beam gradient potential,
+
+        U(r, z) = -U0 / s(z) * exp( -2 r^2 / (w0^2 s(z)) ),
+        s(z)    = 1 + (z / zR)^2,
+
+    replacing the infinitely-deep harmonic well of Phases 1-3. `U0` is the
+    well depth (J), `w0` the beam waist (transverse 1/e^2 radius at the
+    focus), and `zR` the Rayleigh range (the axial scale over which the
+    beam spreads). Far from the focus U -> 0, so unlike the harmonic trap
+    the well is *finite*: a particle can escape and an outside particle can
+    enter. The controlling dimensionless number is the depth in thermal
+    units, `depth_kT = U0 / (kB T)` (see `depth_kT`).
+
+    Harmonic limit (the built-in regression check)
+    ----------------------------------------------
+    Expanding U to second order about the focus (r, z -> 0) gives
+    U ~ -U0 + (1/2)(4 U0 / w0^2) r^2 + (1/2)(2 U0 / zR^2) z^2, i.e. a
+    harmonic well with
+
+        kr = 4 U0 / w0^2,     kz = 2 U0 / zR^2.
+
+    So the finite-depth potential *reduces to the Phase-2/3 harmonic trap*
+    near the focus. This class is parametrised the other way round for that
+    reason: `kr`, `kz` (inherited, with the Phase-2 defaults) are the
+    primary inputs, and when `U0`/`zR` are left as None they are derived so
+    the harmonic limit reproduces exactly those `kr`, `kz`:
+
+        U0 = kr w0^2 / 4,     zR = sqrt(2 U0 / kz).
+
+    Turning the Phase-4 potential on and reading its curvature back off is
+    then a genuine regression test against Phase 2, exactly as F0 = 0 was
+    for Phase 3. (Phase 4's power parametrisation will later invert this,
+    driving U0 from beam power P and deriving kr, kz.)
+
+    The default waist w0 = 0.5 um is diffraction-limited for a ~1 um
+    trapping laser; with the Phase-2 kr it yields U0/kBT ~ 15 (a physically
+    deep trap) and sigma_r ~ 64 nm, consistent with the Phase-2 baseline.
+    """
+    w0: float = 0.5e-6         # m, beam waist (transverse 1/e^2 radius at focus)
+    U0: float | None = None    # J, well depth; None -> derived from kr, w0
+    zR: float | None = None    # m, Rayleigh range; None -> derived from kz, U0
+
+    def __post_init__(self):
+        if self.U0 is None:
+            object.__setattr__(self, "U0", 0.25 * self.kr * self.w0**2)
+        if self.zR is None:
+            object.__setattr__(self, "zR", math.sqrt(2.0 * self.U0 / self.kz))
+
+    @classmethod
+    def from_power(cls, P, radius=50e-9, n_particle=2.4, n_medium=1.33,
+                   wavelength=1.064e-6, w0=0.5e-6, eta=1e-3, T=300.0):
+        """
+        Build a trap from beam power P [W] via the dipole (Rayleigh) model --
+        the Phase-4 inversion that makes **P the independent control variable**.
+
+        For a sub-wavelength dielectric sphere of radius a and refractive index
+        n_particle in a medium n_medium, the Clausius-Mossotti polarizability is
+
+            alpha = 4 pi eps0 n_medium^2 a^3 (m^2 - 1)/(m^2 + 2),   m = n_p/n_m,
+
+        and the gradient-trap depth is U0 = alpha I0 / (2 c eps0 n_medium) with
+        peak intensity I0 = 2P/(pi w0^2). The Rayleigh range is set by the optics,
+        zR = pi n_medium w0^2 / wavelength, and the harmonic stiffnesses then
+        follow from the potential curvature, kr = 4 U0/w0^2, kz = 2 U0/zR^2 (so
+        kr, kz, U0, zR are all mutually consistent by construction -- the same
+        harmonic-limit identity the class is built on).
+
+        Defaults describe a ~50 nm nanodiamond (n ~ 2.4) in water under a
+        ~1 um trapping laser: a weak-trapping nanoparticle regime where the well
+        may be only a few kBT and escape/entry genuinely matter. U0 scales
+        linearly with P, so depth_kT (and hence retention ~ exp(depth_kT))
+        sweeps across the trapping/marginal boundary as P is varied.
+        """
+        eps0 = 8.8541878128e-12
+        c = 299792458.0
+        m = n_particle / n_medium
+        clausius_mossotti = (m**2 - 1.0) / (m**2 + 2.0)
+        alpha = 4.0 * math.pi * eps0 * n_medium**2 * radius**3 * clausius_mossotti
+        I0 = 2.0 * P / (math.pi * w0**2)
+        U0 = alpha * I0 / (2.0 * c * eps0 * n_medium)
+        zR = math.pi * n_medium * w0**2 / wavelength
+        kr = 4.0 * U0 / w0**2
+        kz = 2.0 * U0 / zR**2
+        return cls(radius=radius, eta=eta, T=T, kr=kr, kz=kz, w0=w0, U0=U0, zR=zR)
+
+    @property
+    def kr_harmonic(self) -> float:
+        """Transverse stiffness of the second-order expansion, 4 U0 / w0^2 [N/m].
+        Equals the input `kr` when U0 is derived (the regression identity)."""
+        return 4.0 * self.U0 / self.w0**2
+
+    @property
+    def kz_harmonic(self) -> float:
+        """Axial stiffness of the second-order expansion, 2 U0 / zR^2 [N/m].
+        Equals the input `kz` when zR is derived (the regression identity)."""
+        return 2.0 * self.U0 / self.zR**2
+
+    @property
+    def depth_kT(self) -> float:
+        """Well depth in thermal units, U0 / (kB T) -- the dimensionless
+        control number for escape/entry (retention ~ exp(+depth_kT))."""
+        return self.U0 / (self.kB * self.T)
+
+    def summary(self) -> str:
+        lines = [
+            "=== GaussianBeamParams ===",
+            f"  radius       = {self.radius*1e6:.2f} um",
+            f"  eta          = {self.eta*1e3:.2f} mPa*s",
+            f"  T            = {self.T:.0f} K",
+            f"  w0           = {self.w0*1e9:.1f} nm",
+            f"  zR           = {self.zR*1e9:.1f} nm",
+            f"  U0           = {self.U0:.4e} J",
+            f"  --- derived ---",
+            f"  depth_kT     = {self.depth_kT:.2f}  (U0 / kB T)",
+            f"  kr_harmonic  = {self.kr_harmonic*1e6:.3f} pN/um  (input kr = {self.kr*1e6:.3f})",
+            f"  kz_harmonic  = {self.kz_harmonic*1e6:.3f} pN/um  (input kz = {self.kz*1e6:.3f})",
+            f"  sigma_r      = {self.sigma_r*1e9:.2f} nm",
+            f"  sigma_z      = {self.sigma_z*1e9:.2f} nm",
+        ]
+        return "\n".join(lines)
+
+
 if __name__ == "__main__":
     p = TrapParams()
     print(p.summary())
     print()
     p2 = AxisymTrapParams()
     print(p2.summary())
+    print()
+    p4 = GaussianBeamParams()
+    print(p4.summary())
