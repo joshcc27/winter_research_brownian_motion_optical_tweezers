@@ -52,3 +52,11 @@ figures/*.svg
 *.swo
 .DS_Store
 Thumbs.db
+
+# Report
+report/*.aux
+report/*.log
+report/*.out
+report/*.pdf
+report/*.tex
+report/*.toc
