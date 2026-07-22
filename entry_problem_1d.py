@@ -4,15 +4,13 @@ centre. How long does it take to relax into the trap region R. One-dimensional c
 
 Physically this is a closed system (reflecting boundaries), so as t -> infinity, the density
 relaxes to the Boltzmann equilibrium.
-
-After validation, writes figures/loading_curve_1d.png and figures/density_relaxation_1d.png.
 """
 import numpy as np
 
 from common import (w0, depth_kT, L, gamma, D, beta, tau_relax, t_diff, gaussian_trap_1d,
                     boltzmann, chang_cooper_generator, make_cn_stepper, reflect, fit_exp,
-                    setup_figures, save_fig, BLUE, GREEN, MAGENTA, INK, SECONDARY,
-                    BASELINE, SEQ)
+                    setup_figures, save_fig, annotate, C_PDE, C_SDE, C_EXACT, INK,
+                    SECONDARY, BASELINE, SEQ)
 
 tol = 1e-8      # mass-conservation tolerance
 
@@ -112,39 +110,45 @@ assert rel_diff < 0.20, f"FP and SDE tau_load disagree by {rel_diff:.1%}"
 
 
 
-# Figures (only reached once the cross-validation above has passed)
+
+# Figures
 plt = setup_figures()
 
-# Loading curve: FP vs SDE vs the exponential fit
-fig, ax = plt.subplots(figsize=(4.6, 3.2))
-every = max(1, len(t_sde) // 300)
-ax.plot(t_sde[::every] * 1e3, N_sde[::every], ".", color=GREEN, ms=3, alpha=0.6,
-        label="SDE ensemble")
-ax.plot(t_fp * 1e3, N_fp, color=BLUE, label="Fokker-Planck")
-ax.plot(t_fp * 1e3, N_inf_fp - A_fp * np.exp(-t_fp / tau_load_fp), "--", color=MAGENTA,
-        lw=1.2, label="exponential fit")
-ax.axhline(N_inf_fp, color=BASELINE, lw=0.8, ls=":")
-ax.text(0.97, 0.30, f"$\\tau$ = {tau_load_fp*1e3:.1f} ms (FP)\n"
-                    f"$\\tau$ = {tau_load_sde*1e3:.1f} ms (SDE)",
-        transform=ax.transAxes, fontsize=8, color=SECONDARY, ha="right")
-ax.set_ylim(0, 1)
-ax.set_xlabel(r"$t$ (ms)")
-ax.set_ylabel(r"loaded fraction $N(t)$")
-ax.set_title(r"1D box: loading into the trap region $|x| < w_0$")
-ax.legend(loc="lower right")
+# Loading curve: the loaded fraction N(t) by finite volumes, by the particle ensemble,
+# and the single-exponential fit whose time constant is quoted.
+fig, ax = plt.subplots(figsize=(5.2, 3.5))
+every = max(1, len(t_sde) // 240)
+ax.plot(t_sde[::every] * 1e3, N_sde[::every], "o", color=C_SDE, ms=3.4, alpha=0.5,
+        mew=0, label="Langevin ensemble")
+ax.plot(t_fp * 1e3, N_fp, color=C_PDE, label="Fokker–Planck")
+ax.plot(t_fp * 1e3, N_inf_fp - A_fp * np.exp(-t_fp / tau_load_fp), "--", color=C_EXACT,
+        lw=1.3, label="single-exponential fit")
+ax.axhline(N_inf_fp, color=BASELINE, lw=0.9, ls=(0, (1, 2.5)))
+ax.set_ylim(0, 1.03)
+ax.set_xlim(0, t_sde[-1] * 1e3)
+ax.set_xlabel(r"time  $t$  (ms)")
+ax.set_ylabel(r"loaded fraction  $N(t)$")
+ax.text(0.985, 0.52, rf"$\tau_{{\mathrm{{load}}}} = {tau_load_fp*1e3:.1f}$ ms (FP)"
+        "\n" rf"$\tau_{{\mathrm{{load}}}} = {tau_load_sde*1e3:.1f}$ ms (SDE)",
+        transform=ax.transAxes, ha="right", va="center", color=SECONDARY,
+        fontsize=9.5, linespacing=1.4)
+ax.legend(loc="lower right", handletextpad=0.6)
 save_fig(fig, "loading_curve_1d.png")
 
-# Density snapshots: relaxation from uniform to Boltzmann
-fig, ax = plt.subplots(figsize=(5.2, 3.4))
+# Density snapshots: the profile relaxing from the uniform cloud onto the Boltzmann peak.
+fig, ax = plt.subplots(figsize=(5.6, 3.6))
 x_um = trap.grids[0] * 1e6
 shades = [SEQ[i] for i in np.linspace(1, len(SEQ) - 1, len(snaps)).astype(int)]
 for (ts, ps), color in zip(snaps, shades):
-    ax.plot(x_um, ps * 1e-6, color=color, label=f"t = {ts*1e3:.2g} ms")
-ax.plot(x_um, w_eq * 1e-6, "--", color=INK, lw=1.0, label="Boltzmann")
+    ax.plot(x_um, ps * 1e-6, color=color, lw=1.9, label=rf"$t = {ts*1e3:.0f}$ ms")
+ax.plot(x_um, w_eq * 1e-6, "--", color=C_EXACT, lw=1.4, label="Boltzmann")
 for s in (-1.0, 1.0):
-    ax.axvline(s * w0 * 1e6, color=BASELINE, lw=0.8, ls=":")
-ax.set_xlabel(r"$x$ ($\mu$m)")
-ax.set_ylabel(r"density $p(x,t)$ ($\mu$m$^{-1}$)")
-ax.set_title("1D box: relaxation from uniform to Boltzmann")
-ax.legend(loc="upper left", fontsize=7)
+    ax.axvline(s * w0 * 1e6, color=BASELINE, lw=0.9, ls=(0, (1, 2.5)))
+ax.text(w0 * 1e6, ax.get_ylim()[1], r"  trap edge $|x|=w_0$", color=SECONDARY,
+        fontsize=8.5, ha="left", va="top")
+ax.set_xlim(x_um[0], x_um[-1])
+ax.set_ylim(bottom=0)
+ax.set_xlabel(r"position  $x$  ($\mu$m)")
+ax.set_ylabel(r"density  $p(x,t)$  ($\mu$m$^{-1}$)")
+ax.legend(loc="upper left", ncol=1, handlelength=1.4, labelspacing=0.35)
 save_fig(fig, "density_relaxation_1d.png")

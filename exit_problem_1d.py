@@ -12,7 +12,7 @@ from common import (w0, depth_kT, L, D, beta, tau_relax, t_diff, gaussian_trap_1
                     boltzmann, chang_cooper_generator, leading_mode,
                     reflecting_steady_state, backward_mfpt, sample_cells,
                     survival_expansion, setup_figures, save_fig,
-                    BLUE, MAGENTA, SECONDARY, GRID)
+                    C_PDE, C_EXACT, SECONDARY, GRID, BASELINE)
 
 # Trap and grid
 trap = gaussian_trap_1d(Nx=1001)
@@ -152,22 +152,27 @@ assert rel_l1_ss < 1e-2, f"numeric steady state and Boltzmann disagree, rel L1 =
 
 
 
-# Figures (only reached once the cross-validation above has passed)
+# Figures
 plt = setup_figures()
 
-# MFPT profile: analytic quadrature vs discrete backward solve
-fig, ax = plt.subplots(figsize=(4.8, 3.2))
-ax.axvspan(-1, 1, color=GRID, alpha=0.5, lw=0)          # trap region |x| < w0
-ax.plot(x / w0, T_quad * 1e3, color=MAGENTA, label="quadrature")
-ax.plot(x[interior][::40] / w0, T_backward[::40] * 1e3, ".", color=BLUE, ms=4,
-        label="backward solve")
-ax.set_xlabel(r"$x / w_0$")
-ax.set_ylabel(r"$T$ (ms)")
-ax.set_title("1D box: mean first-passage time to the walls")
-ax.legend(loc="lower center")
+# MFPT field T(x): the closed-form quadrature (line) with the discrete backward solve
+# (points) sampled sparsely on top. The shaded strip marks the trap region |x| < w0.
+fig, ax = plt.subplots(figsize=(5.2, 3.4))
+ax.axvspan(-1, 1, color=GRID, lw=0)                     # trap region |x| < w0
+ax.plot(x / w0, T_quad * 1e3, color=C_EXACT, lw=1.6, label="closed-form quadrature")
+ax.plot(x[interior][::40] / w0, T_backward[::40] * 1e3, "o", color=C_PDE, ms=4.2,
+        mew=0, label="backward-Kolmogorov solve")
+ax.text(0.0, T_quad.max() * 1e3, "trap region", color=SECONDARY, fontsize=9,
+        ha="center", va="bottom")
+ax.set_xlim(x[0] / w0, x[-1] / w0)
+ax.set_ylim(bottom=0)
+ax.set_xlabel(r"start position  $x / w_0$")
+ax.set_ylabel(r"mean escape time  $T$  (ms)")
+ax.legend(loc="lower center", handletextpad=0.6)
 save_fig(fig, "mfpt_profile_1d.png")
 
-# Survival curve: k-mode eigen-expansion vs the slow mode c1*exp(-lam1*t)
+# Survival curve: the full k-mode expansion against the single slowest mode. On a log
+# axis a pure exponential is a straight line; the two curves coincide.
 lam_m, c_m = survival_expansion(L_op, p_ss[interior], p0_interior, dV)
 t_S = np.linspace(0.0, 4.5 / lam_m[0], 500)
 S = np.exp(-np.outer(t_S, lam_m)) @ c_m
@@ -175,15 +180,18 @@ print(f"  survival modes: 1/lam1 {1e3/lam_m[0]:.2f} ms, c1 {c_m[0]:.4f}, "
       f"sum c/lam {np.sum(c_m/lam_m)*1e3:.2f} ms vs resolvent {tau_fp*1e3:.2f} ms, "
       f"S(0) = {c_m.sum():.4f}", flush=True)
 
-fig, ax = plt.subplots(figsize=(4.8, 3.2))
-ax.semilogy(t_S * 1e3, S, color=BLUE, label=f"$S(t)$, {len(lam_m)} modes")
-ax.semilogy(t_S * 1e3, c_m[0] * np.exp(-lam_m[0] * t_S), "--", color=MAGENTA,
-            label=r"$c_1 e^{-\lambda_1 t}$")
+fig, ax = plt.subplots(figsize=(5.2, 3.4))
+ax.semilogy(t_S * 1e3, S, color=C_PDE, lw=2.4,
+            label=rf"$S(t)$, {len(lam_m)}-mode expansion")
+ax.semilogy(t_S * 1e3, c_m[0] * np.exp(-lam_m[0] * t_S), "--", color=C_EXACT, lw=1.4,
+            label=r"slowest mode  $c_1\, e^{-\lambda_1 t}$")
 ax.set_ylim(1e-3, 1.4)
-ax.set_xlabel(r"$t$ (ms)")
-ax.set_ylabel(r"survival $S(t)$")
-ax.set_title(f"1D box: escape survival at depth {depth_kT:.0f} $k_BT$")
-ax.text(0.05, 0.08, f"$1/\\lambda_1$ = {1e3/lam_m[0]:.1f} ms\n$c_1$ = {c_m[0]:.3f}",
-        transform=ax.transAxes, fontsize=8, color=SECONDARY)
-ax.legend(loc="upper right")
+ax.set_xlim(0, t_S[-1] * 1e3)
+ax.set_xlabel(r"time  $t$  (ms)")
+ax.set_ylabel(r"survival probability  $S(t)$")
+ax.text(0.035, 0.11, rf"$1/\lambda_1 = {1e3/lam_m[0]:.0f}$ ms"
+        "\n" rf"$c_1 = {c_m[0]:.3f}$",
+        transform=ax.transAxes, fontsize=9.5, color=SECONDARY, va="bottom",
+        linespacing=1.4)
+ax.legend(loc="upper right", handletextpad=0.6)
 save_fig(fig, "survival_modes_1d.png")

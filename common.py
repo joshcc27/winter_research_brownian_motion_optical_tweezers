@@ -58,9 +58,7 @@ def gaussian_trap_1d(Nx, v_push=0.0, depth=depth_kT):
     v_push is an optional constant drift velocity (m/s) added on top of the trap
     gradient, e.g. a scattering-force push. In 1D any such drift integrates into an
     effective potential, so U_grid becomes U - gamma*v_push*x and every Boltzmann-based
-    diagnostic stays exact.
-
-    depth is the well depth in units of kB*T, defaulting to the module-wide depth_kT."""
+    diagnostic stays exact."""
     x = np.linspace(-L, L, Nx)
     dx = x[1] - x[0]
     U0 = depth * kB * T
@@ -74,107 +72,77 @@ def gaussian_trap_1d(Nx, v_push=0.0, depth=depth_kT):
                 sde_drift=v)   # v acts elementwise, so it maps (M, 1) to (M, 1) directly
 
 
-def gaussian_trap_2d(Nx, Ny, depth=depth_kT):
-    """The trap on a uniform 2D grid with Nx x Ny points spanning [-L, L]^2.
-    The flat index is k = i + Nx*j. depth is the well depth in units of kB*T."""
-    x = np.linspace(-L, L, Nx)
-    y = np.linspace(-L, L, Ny)
-    dx = x[1] - x[0]
-    dy = y[1] - y[0]
-    Xg, Yg = np.meshgrid(x, y)
-    U0 = depth * kB * T
-
-    U = lambda x, y: -U0 * np.exp(-2 * (x**2 + y**2) / w0**2)                       # potential
-    dUdx = lambda x, y: (4 * U0 * x / w0**2) * np.exp(-2 * (x**2 + y**2) / w0**2)   # dU/dx
-    dUdy = lambda x, y: (4 * U0 * y / w0**2) * np.exp(-2 * (x**2 + y**2) / w0**2)   # dU/dy
-    vx = lambda x, y: -dUdx(x, y) / gamma                                           # drift velocity
-    vy = lambda x, y: -dUdy(x, y) / gamma
-
-    sde_drift = lambda X: np.stack([vx(X[:, 0], X[:, 1]),
-                                    vy(X[:, 0], X[:, 1])], axis=1)
-
-    return Trap(grids=(x, y), v_funcs=(vx, vy), spacing=np.array([dx, dy]), dV=dx * dy,
-                nodes=np.stack([Xg.ravel(), Yg.ravel()], axis=1),
-                U_grid=U(Xg, Yg).ravel(),
-                sde_drift=sde_drift)
+def rayleigh_range(lam=1.064e-6, n_medium=1.33):
+    """Rayleigh range z_R = pi w0^2 n / lambda of the focused beam (default: 1064 nm
+    laser in water), the distance over which the beam width grows by sqrt(2)."""
+    return np.pi * w0**2 * n_medium / lam
 
 
-def gaussian_trap_radial(Nr, d, depth=depth_kT):
-    """The rotationally symmetric d-dimensional trap on a disk/ball of radius L, reduced
-    to the 1D radial marginal q(r, t) = S_d r^(d-1) P(r, t), which obeys the flux-form
-    equation dq/dt = -d/dr[v_eff q - D dq/dr] with
+def gaussian_trap_beam(Nrho, Nz, depth=depth_kT, zR=None, Lz=1.5 * L, pad=0.05,
+                       F_rho=0.0, F_z=0.0):
+    """The focused Gaussian-beam ("cigar") trap in cylindrical coordinates (rho, z):
 
-        v_eff(r) = -U'(r)/gamma + (d-1) D / r
+        U(rho, z) = -U0 (w0 / w(z))^2 exp(-2 rho^2 / w(z)^2),
+        w(z)^2 = w0^2 (1 + z^2 / zR^2)
 
-    equivalently the effective potential U_eff(r) = U(r) - (d-1) kB T ln(r), whose
-    Boltzmann weight is the exact radial marginal r^(d-1) exp(-beta U). The grid is
-    cell-centred, r_i = (i + 1/2) dr with dr = L/Nr, so no node or interior face touches
-    the singular axis; the zero-flux row at the first cell is the mirror plane at r = 0.
+    the gradient-force potential of a beam with waist w0 and Rayleigh range zR. The well
+    is ~ 2 (zR/w0)^2 stiffer transversally than axially, so the equipotentials are
+    elongated along the beam. Still rotationally symmetric about z, so everything from
+    gaussian_trap_cylindrical carries over unchanged: entropic drift +D/rho on the rho
+    axis, effective potential U - kB T ln(rho), cell-centred grids with the axis face as
+    the mirror plane.
 
-    Unlike the Cartesian constructors, sde_drift is the full d-dimensional Cartesian
-    drift (M, d) -> (M, d): the SDE cross-check runs in Cartesian coordinates on the
-    ball, validating the radial reduction itself, not just its discretisation.
+    (F_rho, F_z) is a generic constant stand-in force (N) added on top of the gradient: a
+    uniform axial push F_z along z and a uniform radial push F_rho along +rho (both
+    rotationally symmetric about the beam axis, so the (rho, z) reduction is preserved).
+    It is a placeholder for a real, measured force field -- kept deliberately generic.
+    Being constant the force is CONSERVATIVE: it folds into the effective potential as the
+    linear term -F_rho*rho - F_z*z and adds uniform drifts F_rho/gamma and F_z/gamma, so
+    detailed balance and the Boltzmann steady state survive exactly -- it merely tilts the
+    trap and shifts the equilibrium. Every detailed-balance diagnostic therefore stays
+    valid (unlike an intensity-shaped or otherwise position-dependent force, which would
+    break conservativity and require the null-space / non-symmetric machinery instead).
 
-    depth is the well depth in units of kB*T, defaulting to the module-wide depth_kT."""
-    dr = L / Nr
-    r = (np.arange(Nr) + 0.5) * dr
-    U0 = depth * kB * T
-
-    U = lambda r: -U0 * np.exp(-2 * r**2 / w0**2)                       # potential
-    dUdr = lambda r: (4 * U0 * r / w0**2) * np.exp(-2 * r**2 / w0**2)   # dU/dr
-    v_eff = lambda r: -dUdr(r) / gamma + (d - 1) * D / r                # drift + entropic term
-
-    sde_drift = lambda X: -(4 * U0 / (gamma * w0**2)) * X * \
-        np.exp(-2 * np.sum(X**2, axis=1, keepdims=True) / w0**2)
-
-    return Trap(grids=(r,), v_funcs=(v_eff,), spacing=np.array([dr]), dV=dr,
-                nodes=r[:, None],
-                U_grid=U(r) - (d - 1) * kB * T * np.log(r),             # effective potential
-                sde_drift=sde_drift)
-
-
-def gaussian_trap_cylindrical(Nrho, Nz, depth=depth_kT, pad=0.05):
-    """The rotationally symmetric 3D trap in cylindrical coordinates (rho, z): the full
-    3D physics collapses onto a 2D tensor solve for the azimuthal marginal
-    q(rho, z, t) = 2 pi rho P(rho, z, t), whose flux-form equation has drift components
-
-        v_rho_eff(rho, z) = -dU/drho / gamma + D / rho,    v_z(rho, z) = -dU/dz / gamma
-
-    equivalently the effective potential U_eff = U - kB T ln(rho), whose Boltzmann weight
-    is the exact marginal rho * exp(-beta U). As in gaussian_trap_radial, the rho grid is
-    cell-centred so the zero-flux row at the first cell is the mirror plane at the axis;
-    z is cell-centred and symmetric about 0. Both axes extend to (1 + pad) L so that a
-    ball of radius L fits strictly inside the tensor grid (restrict_generator carves it
-    out, making every mask-edge face an interior face of the grid).
-
-    The stand-in potential here is the spherically symmetric Gaussian U(r) with
-    r^2 = rho^2 + z^2, so every result must reproduce gaussian_trap_radial(d=3); the real
-    z-asymmetric beam profile will replace U later. sde_drift is the full 3D Cartesian
-    drift (M, 3) -> (M, 3): the SDE cross-check runs in Cartesian coordinates on the
-    ball, validating the cylindrical reduction itself, not just its discretisation.
-
-    depth is the well depth in units of kB*T, defaulting to the module-wide depth_kT."""
-    Lg = (1.0 + pad) * L
-    drho = Lg / Nrho
-    dz = 2.0 * Lg / Nz
+    Domain: rho in (0, (1+pad) L], z in [-(1+pad) Lz, (1+pad) Lz]. The production domain
+    is the cylinder rho < L, |z| < Lz, carved out with a rectangular restrict_generator
+    mask; Lz defaults to 1.5 L because the axial well is much longer than the transverse
+    one. sde_drift is the full 3D Cartesian drift built from the same dU partials, so
+    the SDE cross-check exercises exactly the drift the PDE sees."""
+    if zR is None:
+        zR = rayleigh_range()
+    drho = (1.0 + pad) * L / Nrho
+    dz = 2.0 * (1.0 + pad) * Lz / Nz
     rho = (np.arange(Nrho) + 0.5) * drho
-    z = -Lg + (np.arange(Nz) + 0.5) * dz
+    z = -(1.0 + pad) * Lz + (np.arange(Nz) + 0.5) * dz
     U0 = depth * kB * T
 
-    U = lambda rho, z: -U0 * np.exp(-2 * (rho**2 + z**2) / w0**2)                     # potential
-    dU = lambda s, rho, z: (4 * U0 * s / w0**2) * np.exp(-2 * (rho**2 + z**2) / w0**2)
-    v_rho = lambda rho, z: -dU(rho, rho, z) / gamma + D / rho    # drift + entropic term
-    v_z = lambda rho, z: -dU(z, rho, z) / gamma
+    s = lambda z: 1.0 / (1.0 + (z / zR)**2)                          # (w0 / w(z))^2
+    core = lambda rho, z: s(z) * np.exp(-2 * rho**2 * s(z) / w0**2)  # -U / U0
+    U = lambda rho, z: -U0 * core(rho, z)
+    # dU/drho = rho * [4 U0 s / w0^2 * core]; kept as dU/drho / rho, finite at the axis
+    dUdrho_over_rho = lambda rho, z: (4 * U0 * s(z) / w0**2) * core(rho, z)
+    dUdz = lambda rho, z: (2 * U0 * z / zR**2) * s(z) * core(rho, z) \
+        * (1.0 - 2 * rho**2 * s(z) / w0**2)
+
+    v_rho = lambda rho, z: -rho * dUdrho_over_rho(rho, z) / gamma + D / rho + F_rho / gamma
+    v_z = lambda rho, z: -dUdz(rho, z) / gamma + F_z / gamma
 
     Rg, Zg = np.meshgrid(rho, z)      # flat index k = i + Nrho*j, rho fastest
 
-    sde_drift = lambda X: -(4 * U0 / (gamma * w0**2)) * X * \
-        np.exp(-2 * np.sum(X**2, axis=1, keepdims=True) / w0**2)
+    def sde_drift(X):
+        rho_r = np.hypot(X[:, 0], X[:, 1])
+        g_r = -dUdrho_over_rho(rho_r, X[:, 2]) / gamma    # v_rho / rho, no singularity
+        # add the constant radial force along the unit radial direction (guarded at the axis)
+        radial = g_r + np.divide(F_rho / gamma, rho_r,
+                                 out=np.zeros_like(rho_r), where=rho_r > 0)
+        vz = -dUdz(rho_r, X[:, 2]) / gamma + F_z / gamma
+        return np.stack([radial * X[:, 0], radial * X[:, 1], vz], axis=1)
 
     return Trap(grids=(rho, z), v_funcs=(v_rho, v_z), spacing=np.array([drho, dz]),
                 dV=drho * dz,
                 nodes=np.stack([Rg.ravel(), Zg.ravel()], axis=1),
-                U_grid=(U(Rg, Zg) - kB * T * np.log(Rg)).ravel(),    # effective potential
+                # effective potential: entropic -kT ln(rho) plus the constant-force tilt -F.x
+                U_grid=(U(Rg, Zg) - kB * T * np.log(Rg) - F_rho * Rg - F_z * Zg).ravel(),
                 sde_drift=sde_drift)
 
 
@@ -398,6 +366,27 @@ def backward_mfpt(L_op):
     return spsolve(L_op.T.tocsc(), -np.ones(L_op.shape[0]))
 
 
+def mfpt_quadrature(x, phi, D):
+    """Exact ensemble MFPT for 1D overdamped diffusion in the effective potential
+    F(x) = -kB T ln phi(x), on [x[0], x[-1]] with both ends absorbing and diffusion
+    constant D. Solves the backward equation D (phi T')' = -phi with T = 0 at both walls
+    by the double quadrature
+
+        T(x) = C K(x) - J(x)/D,  K = int 1/phi,  I = int phi,  J = int I/phi,
+        C = J(x_end) / (D K(x_end)),
+
+    (the closed form used for the 1D box anchor) and returns (T_profile, tau) with tau the
+    MFPT averaged over the normalised start density phi / int(phi)."""
+    from scipy.integrate import cumulative_trapezoid
+
+    K = cumulative_trapezoid(1.0 / phi, x, initial=0.0)
+    I = cumulative_trapezoid(phi, x, initial=0.0)
+    J = cumulative_trapezoid(I / phi, x, initial=0.0)
+    T = (J[-1] / (D * K[-1])) * K - J / D
+    tau = np.trapezoid(T * phi, x) / np.trapezoid(phi, x)
+    return T, tau
+
+
 
 
 # Helpers shared by the SDE simulations
@@ -415,16 +404,6 @@ def sample_cells(rng, M, w, trap):
     return trap.nodes[k] + rng.uniform(-0.5, 0.5, (M, trap.nodes.shape[1])) * trap.spacing
 
 
-def sample_radial_shell(rng, M, w, trap, d):
-    """Draw M Cartesian d-dimensional starting points, shape (M, d), from radial-grid
-    cell weights w: sample a radius per particle as in sample_cells, then scatter it over
-    a uniformly random direction (normalised Gaussian vector)."""
-    radii = sample_cells(rng, M, w, trap)[:, 0]
-    n = rng.standard_normal((M, d))
-    n /= np.linalg.norm(n, axis=1, keepdims=True)
-    return radii[:, None] * n
-
-
 def fit_exp(t, N, N_inf, skip_frac=0.05, floor=1e-4):
     """tau and amplitude A of the fit N(t) ~ N_inf - A*exp(-t/tau), by linear regression
     of log(N_inf - N) against t. skip_frac drops the earliest points (fast transients),
@@ -438,14 +417,6 @@ def fit_exp(t, N, N_inf, skip_frac=0.05, floor=1e-4):
     A = np.vstack([tt, np.ones_like(tt)]).T
     slope, icept = np.linalg.lstsq(A, np.log(rr), rcond=None)[0]
     return -1.0 / slope, np.exp(icept)
-
-
-def fit_tau_load(t, N, N_inf, skip_frac=0.05, floor=1e-4):
-    """Fit N(t) ~ N_inf - A*exp(-t/tau) by linear regression of log(N_inf - N) against t.
-
-    Physically, tau is the time of the slowest surviving relaxation mode as the initially
-    uniform density approaches equilibrium (how long the box takes to load the trap)."""
-    return fit_exp(t, N, N_inf, skip_frac, floor)[0]
 
 
 
@@ -477,67 +448,84 @@ def survival_expansion(L_int, pi_int, p0_int, dV, k=40):
     return lam, a * mass
 
 
-def loading_time(L_ref, pi, p_init, in_R, dV, k=12):
-    """1/lam of the slowest reflecting mode that actually appears in N(t), i.e. has
-    nonzero overlap with both the initial condition and the trap-region indicator.
-    (On the symmetric 1D/2D domains the slowest mode overall is odd and invisible.)"""
-    lam, vecs, s = symmetrized_modes(L_ref, pi, k, sigma=1.0 / t_diff)
-    p_n = p_init / (p_init.sum() * dV)
-    a = vecs.T @ (p_n / s)
-    R_mass = (vecs * s[:, None])[in_R].sum(axis=0) * dV
-    b = a * R_mass                                # mode weights of N(t) - N_inf
-    decaying = lam > 1e-6 * lam.max()             # drop the stationary lam ~ 0 mode
-    lam_d, b_d = lam[decaying], b[decaying]
-    visible = np.abs(b_d) > 1e-3 * np.abs(b_d).max()
-    return 1.0 / lam_d[visible].min()
-
-
-
-
 # Figure helpers: house style shared by the per-script report figures, saved to figures/
 FIG_DIR = "figures"
 
-# Palette: color follows the entity across every figure
-BLUE = "#2a78d6"       # PDE / Fokker-Planck routes
-GREEN = "#008300"      # SDE / Langevin routes
-MAGENTA = "#e87ba4"    # analytic (quadrature, slow mode, exponential fits)
-YELLOW = "#eda100"     # fourth categorical slot
-INK = "#0b0b0b"
-SECONDARY = "#52514e"
-MUTED = "#898781"
-GRID = "#e1e0d9"
-BASELINE = "#c3c2b7"
-SEQ = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+# Palette. Colour tracks the *method*, not the quantity, so a reader learns it once and
+# reads it everywhere. The three method colours are the Okabe-Ito blue and vermillion
+# (a colour-vision-safe pair, verified) plus near-black for the exact/analytic references;
+# figures carry no titles, so the report caption alone describes each one.
+C_PDE = "#0072b2"      # blue       -- finite-volume Fokker-Planck routes
+C_SDE = "#d55e00"      # vermillion -- Langevin particle ensembles
+C_EXACT = "#1a1a1a"    # near-black -- analytic references (quadrature, slow mode, PMF)
+C_BEAM = "#e69f00"     # amber      -- beam envelope in the schematic
+
+INK = "#1a1a1a"
+SECONDARY = "#4d4d4d"
+MUTED = "#8a8a8a"
+GRID = "#e7e6e2"
+BASELINE = "#bdbcb5"
+# Single-hue blue ramp (light -> dark) for time snapshots and density maps
+SEQ = ["#e8f0f8", "#c3ddf0", "#93c1e3", "#5fa2d3", "#2f82bf", "#1a63a0", "#0d4577", "#062f52"]
 
 
 def setup_figures():
     """Select the Agg backend, apply the house style, and return pyplot.
-    Call once before building any figure."""
+
+    The style is deliberately plain: a serif text/maths pairing (STIX) that matches the
+    LaTeX body, only the left and bottom spines, a faint grid, and no in-axes titles --
+    each figure is described by its report caption instead."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     plt.rcParams.update({
         "figure.facecolor": "white", "axes.facecolor": "white",
-        "savefig.facecolor": "white", "savefig.dpi": 220, "savefig.bbox": "tight",
-        "axes.edgecolor": BASELINE, "axes.linewidth": 0.8,
-        "axes.labelcolor": SECONDARY, "axes.titlecolor": INK,
-        "axes.titlesize": 10, "axes.labelsize": 9, "font.size": 9,
+        "savefig.facecolor": "white", "savefig.dpi": 300, "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.03,
+        # Serif text + matching maths, to sit with the report's Computer-Modern body
+        "font.family": "serif", "font.serif": ["STIXGeneral", "DejaVu Serif"],
+        "mathtext.fontset": "stix",
+        "axes.edgecolor": SECONDARY, "axes.linewidth": 0.8,
+        "axes.labelcolor": INK, "axes.titlecolor": INK,
+        "axes.labelsize": 11, "font.size": 10.5,
         "axes.spines.top": False, "axes.spines.right": False,
-        "xtick.color": MUTED, "ytick.color": MUTED,
-        "xtick.labelsize": 8, "ytick.labelsize": 8,
-        "grid.color": GRID, "grid.linewidth": 0.6,
+        "xtick.color": SECONDARY, "ytick.color": SECONDARY,
+        "xtick.labelcolor": INK, "ytick.labelcolor": INK,
+        "xtick.labelsize": 9.5, "ytick.labelsize": 9.5,
+        "xtick.direction": "out", "ytick.direction": "out",
+        "xtick.major.size": 3.5, "ytick.major.size": 3.5,
+        "xtick.major.width": 0.8, "ytick.major.width": 0.8,
+        "grid.color": GRID, "grid.linewidth": 0.7,
         "axes.grid": True, "axes.axisbelow": True,
-        "legend.frameon": False, "legend.fontsize": 8,
-        "lines.linewidth": 1.8, "text.color": INK,
+        "legend.frameon": False, "legend.fontsize": 9.5,
+        "legend.handlelength": 1.7, "legend.borderaxespad": 0.4,
+        "lines.linewidth": 1.9, "lines.solid_capstyle": "round",
+        "text.color": INK,
     })
     return plt
 
 
 def seq_cmap():
-    """Sequential blue colormap built from the SEQ ramp (for density heatmaps)."""
+    """Sequential single-hue blue colormap from the SEQ ramp (for density heatmaps)."""
     from matplotlib.colors import LinearSegmentedColormap
     return LinearSegmentedColormap.from_list("seq_blue", SEQ)
+
+
+def annotate(ax, lines, loc="lower right", pad=0.04):
+    """Place a small, box-free multi-line note in a chosen corner of the axes.
+
+    lines is a list of already-formatted strings. Kept restrained: figures state their
+    headline numbers once, in secondary ink, without a framed text box."""
+    corners = {
+        "lower right": (1 - pad, pad, "right", "bottom"),
+        "lower left": (pad, pad, "left", "bottom"),
+        "upper right": (1 - pad, 1 - pad, "right", "top"),
+        "upper left": (pad, 1 - pad, "left", "top"),
+    }
+    x, y, ha, va = corners[loc]
+    ax.text(x, y, "\n".join(lines), transform=ax.transAxes, ha=ha, va=va,
+            fontsize=9.5, color=SECONDARY, linespacing=1.35)
 
 
 def save_fig(fig, name):
